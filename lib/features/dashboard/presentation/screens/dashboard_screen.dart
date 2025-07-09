@@ -7,6 +7,11 @@ import 'package:stocked/core/constants/app_constants.dart';
 import 'package:stocked/features/auth/presentation/providers/auth_provider.dart';
 import 'package:stocked/features/stock/presentation/screens/stock_management_screen.dart';
 import 'package:stocked/features/analytics/presentation/screens/analytics_detail_screen.dart';
+import 'package:stocked/features/orders/presentation/screens/orders_screen.dart';
+import 'package:stocked/features/payments/presentation/screens/payments_screen.dart';
+import 'package:stocked/features/expenses/presentation/screens/expenses_screen.dart';
+import 'package:stocked/features/analytics/presentation/screens/analytics_screen.dart';
+import 'package:stocked/features/settings/presentation/screens/settings_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -798,43 +803,45 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         );
         break;
       case 2: // Orders
-        _showComingSoon(context, 'Order Management');
+        Navigator.push(
+          context,
+          CupertinoPageRoute(
+            builder: (context) => const OrdersScreen(),
+          ),
+        );
         break;
       case 3: // Payments
-        _showComingSoon(context, 'Payment Management');
+        Navigator.push(
+          context,
+          CupertinoPageRoute(
+            builder: (context) => const PaymentsScreen(),
+          ),
+        );
         break;
       case 4: // Expenses
-        _showComingSoon(context, 'Expense Management');
+        Navigator.push(
+          context,
+          CupertinoPageRoute(
+            builder: (context) => const ExpensesScreen(),
+          ),
+        );
         break;
       case 5: // Analytics
         Navigator.push(
           context,
           CupertinoPageRoute(
-            builder: (context) => AnalyticsDetailScreen(
-              graphData: _analyticsGraphs[_currentGraphIndex],
-            ),
+            builder: (context) => const AnalyticsScreen(),
           ),
         );
         break;
       case 6: // Settings
-        _showComingSoon(context, 'Settings');
+        Navigator.push(
+          context,
+          CupertinoPageRoute(
+            builder: (context) => const SettingsScreen(),
+          ),
+        );
         break;
     }
-  }
-
-  void _showComingSoon(BuildContext context, String feature) {
-    showCupertinoDialog(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Coming Soon'),
-        content: Text('$feature feature will be available in the next update.'),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('OK'),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
-      ),
-    );
   }
 }
