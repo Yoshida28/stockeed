@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:stocked/core/theme/app_theme.dart';
 import 'package:stocked/core/models/item_model.dart';
 import 'package:stocked/core/services/database_service.dart';
+import 'package:stocked/core/services/config_service.dart';
 import 'package:stocked/features/stock/presentation/providers/stock_provider.dart';
 import 'package:stocked/features/stock/presentation/widgets/add_item_modal.dart';
 import 'package:stocked/features/stock/presentation/widgets/item_detail_modal.dart';
@@ -19,19 +20,39 @@ class StockManagementScreen extends ConsumerStatefulWidget {
 class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
   String _selectedCategory = 'All';
   String _searchQuery = '';
+  List<String> _categories = ['All'];
 
-  final List<String> _categories = [
-    'All',
-    'Electronics',
-    'Clothing',
-    'Food & Beverages',
-    'Home & Garden',
-    'Sports',
-    'Books',
-    'Automotive',
-    'Health & Beauty',
-    'Toys & Games',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  void _loadCategories() {
+    try {
+      final categories = ConfigService.get<List<String>>('item_categories');
+      setState(() {
+        _categories = ['All', ...categories];
+      });
+    } catch (e) {
+      print('Error loading categories: $e');
+      // Fallback to default categories
+      setState(() {
+        _categories = [
+          'All',
+          'Electronics',
+          'Clothing',
+          'Food & Beverages',
+          'Home & Garden',
+          'Sports',
+          'Books',
+          'Automotive',
+          'Health & Beauty',
+          'Toys & Games',
+        ];
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,44 +86,60 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
                       });
                     },
                     style: AppTheme.body1,
+                    prefixIcon: Icon(CupertinoIcons.search,
+                        color: AppTheme.primaryColor),
                   ),
                   const SizedBox(height: 16),
 
                   // Category Filter
-                  Container(
-                    height: 40,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _categories.length,
-                      itemBuilder: (context, index) {
-                        final category = _categories[index];
-                        final isSelected = _selectedCategory == category;
-
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: CupertinoButton(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            color: isSelected
-                                ? AppTheme.primaryColor
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(20),
-                            onPressed: () {
-                              setState(() {
-                                _selectedCategory = category;
-                              });
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 40,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _categories.length,
+                            itemBuilder: (context, index) {
+                              final category = _categories[index];
+                              final isSelected = _selectedCategory == category;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: CupertinoButton(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  color: isSelected
+                                      ? AppTheme.primaryColor
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(20),
+                                  onPressed: () {
+                                    setState(() {
+                                      _selectedCategory = category;
+                                    });
+                                  },
+                                  child: Text(
+                                    category,
+                                    style: AppTheme.body2.copyWith(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : AppTheme.textPrimaryColor,
+                                    ),
+                                  ),
+                                ),
+                              );
                             },
-                            child: Text(
-                              category,
-                              style: AppTheme.body2.copyWith(
-                                color: isSelected
-                                    ? Colors.white
-                                    : AppTheme.textPrimaryColor,
-                              ),
-                            ),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(20),
+                        onPressed: _showManageCategoriesModal,
+                        child: const Icon(CupertinoIcons.settings,
+                            color: Colors.white, size: 20),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -179,7 +216,7 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
     final filteredItems = items.where((item) {
       final matchesSearch =
           item.name?.toLowerCase().contains(_searchQuery.toLowerCase()) ??
-          false;
+              false;
       final matchesCategory =
           _selectedCategory == 'All' || item.category == _selectedCategory;
       return matchesSearch && matchesCategory;
@@ -247,9 +284,8 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
                         color: isLowStock
                             ? AppTheme.errorColor
                             : AppTheme.textSecondaryColor,
-                        fontWeight: isLowStock
-                            ? FontWeight.w600
-                            : FontWeight.normal,
+                        fontWeight:
+                            isLowStock ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                     if (isLowStock) ...[
@@ -290,18 +326,137 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
   }
 
   void _showAddItemModal(BuildContext context) {
-    showCupertinoModalPopup(
-      context: context,
-      builder: (context) => const AddItemModal(),
-    );
+    Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (context) => const AddItemModal()),
+    ).then((_) => setState(_loadCategories));
   }
 
   void _showItemDetailModal(BuildContext context, Item item) {
+    Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (context) => ItemDetailModal(item: item)),
+    ).then((_) => setState(_loadCategories));
+  }
+
+  void _showManageCategoriesModal() {
     showCupertinoModalPopup(
       context: context,
-      builder: (context) => ItemDetailModal(item: item),
+      builder: (context) => _ManageCategoriesModal(
+        categories: _categories.where((c) => c != 'All').toList(),
+        onCategoriesChanged: (newCategories) async {
+          await ConfigService.set('item_categories', newCategories);
+          _loadCategories();
+        },
+      ),
     );
   }
 }
 
-// Stock management screen implementation
+class _ManageCategoriesModal extends StatefulWidget {
+  final List<String> categories;
+  final ValueChanged<List<String>> onCategoriesChanged;
+  const _ManageCategoriesModal({
+    required this.categories,
+    required this.onCategoriesChanged,
+  });
+  @override
+  State<_ManageCategoriesModal> createState() => _ManageCategoriesModalState();
+}
+
+class _ManageCategoriesModalState extends State<_ManageCategoriesModal> {
+  late List<String> _categories;
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _categories = List.from(widget.categories);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: const Text('Manage Categories'),
+        trailing: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () => Navigator.pop(context),
+          child: const Icon(CupertinoIcons.xmark),
+        ),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: CupertinoTextField(
+                      controller: _controller,
+                      placeholder: 'New category',
+                      style: AppTheme.body1,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  CupertinoButton.filled(
+                    onPressed: () {
+                      final newCat = _controller.text.trim();
+                      if (newCat.isNotEmpty && !_categories.contains(newCat)) {
+                        setState(() {
+                          _categories.add(newCat);
+                          _controller.clear();
+                        });
+                        widget.onCategoriesChanged(_categories);
+                      }
+                    },
+                    child: const Icon(CupertinoIcons.add),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _categories.length,
+                  itemBuilder: (context, index) {
+                    final cat = _categories[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: AppTheme.glassmorphicDecoration,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              child: Text(cat, style: AppTheme.body1),
+                            ),
+                          ),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () {
+                              setState(() {
+                                _categories.removeAt(index);
+                              });
+                              widget.onCategoriesChanged(_categories);
+                            },
+                            child: const Icon(CupertinoIcons.delete,
+                                color: AppTheme.errorColor),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

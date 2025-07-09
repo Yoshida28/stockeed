@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:stocked/core/theme/app_theme.dart';
 import 'package:stocked/core/models/item_model.dart';
+import 'package:stocked/features/stock/presentation/providers/stock_provider.dart';
 
 class ItemDetailModal extends ConsumerStatefulWidget {
   final Item item;
@@ -458,7 +459,7 @@ class _ItemDetailModalState extends ConsumerState<ItemDetailModal> {
       );
 
       // Update item using provider
-      // ref.read(stockProviderNotifier.notifier).updateItem(updatedItem);
+      await ref.read(stockProviderNotifier.notifier).updateItem(updatedItem);
 
       setState(() {
         _isEditing = false;
@@ -495,7 +496,7 @@ class _ItemDetailModalState extends ConsumerState<ItemDetailModal> {
     if (confirmed == true) {
       try {
         // Delete item using provider
-        // ref.read(stockProviderNotifier.notifier).deleteItem(widget.item.id);
+        await ref.read(stockProviderNotifier.notifier).deleteItem(widget.item.id);
         Navigator.pop(context);
       } catch (e) {
         _showErrorDialog(e.toString());

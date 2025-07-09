@@ -6,6 +6,7 @@ import 'package:stocked/core/models/order_model.dart';
 import 'package:stocked/core/models/voucher_model.dart';
 import 'package:stocked/core/models/payment_model.dart';
 import 'package:stocked/core/models/expense_model.dart';
+import 'package:stocked/core/constants/app_constants.dart';
 
 class DatabaseService {
   static late Isar _isar;
@@ -155,9 +156,63 @@ class DatabaseService {
     });
   }
 
-  // Sync operations - simplified for now
+  // Sync operations
   static Future<List<dynamic>> getPendingSyncData() async {
-    // For now, return empty list until we fix the query issues
-    return [];
+    final List<dynamic> pendingData = [];
+    
+    try {
+      // Get pending users
+      final pendingUsers = await _isar.users
+          .where()
+          .filter()
+          .syncStatusEqualTo(AppConstants.syncStatusPending)
+          .findAll();
+      pendingData.addAll(pendingUsers);
+      
+      // Get pending items
+      final pendingItems = await _isar.items
+          .where()
+          .filter()
+          .syncStatusEqualTo(AppConstants.syncStatusPending)
+          .findAll();
+      pendingData.addAll(pendingItems);
+      
+      // Get pending orders
+      final pendingOrders = await _isar.orders
+          .where()
+          .filter()
+          .syncStatusEqualTo(AppConstants.syncStatusPending)
+          .findAll();
+      pendingData.addAll(pendingOrders);
+      
+      // Get pending vouchers
+      final pendingVouchers = await _isar.vouchers
+          .where()
+          .filter()
+          .syncStatusEqualTo(AppConstants.syncStatusPending)
+          .findAll();
+      pendingData.addAll(pendingVouchers);
+      
+      // Get pending payments
+      final pendingPayments = await _isar.payments
+          .where()
+          .filter()
+          .syncStatusEqualTo(AppConstants.syncStatusPending)
+          .findAll();
+      pendingData.addAll(pendingPayments);
+      
+      // Get pending expenses
+      final pendingExpenses = await _isar.expenses
+          .where()
+          .filter()
+          .syncStatusEqualTo(AppConstants.syncStatusPending)
+          .findAll();
+      pendingData.addAll(pendingExpenses);
+      
+    } catch (e) {
+      print('Error getting pending sync data: $e');
+    }
+    
+    return pendingData;
   }
 }

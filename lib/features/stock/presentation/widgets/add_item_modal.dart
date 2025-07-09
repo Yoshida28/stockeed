@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:stocked/core/theme/app_theme.dart';
 import 'package:stocked/core/models/item_model.dart';
 import 'package:stocked/core/constants/app_constants.dart';
+import 'package:stocked/core/services/config_service.dart';
+import 'package:stocked/features/stock/presentation/providers/stock_provider.dart';
 
 class AddItemModal extends ConsumerStatefulWidget {
   const AddItemModal({super.key});
@@ -24,21 +26,43 @@ class _AddItemModalState extends ConsumerState<AddItemModal> {
   final _barcodeController = TextEditingController();
   final _skuController = TextEditingController();
 
-  String _selectedCategory = 'Electronics';
+  String _selectedCategory = '';
   bool _isLoading = false;
+  List<String> _categories = [];
 
-  final List<String> _categories = [
-    'Electronics',
-    'Clothing',
-    'Food & Beverages',
-    'Home & Garden',
-    'Sports',
-    'Books',
-    'Automotive',
-    'Health & Beauty',
-    'Toys & Games',
-    'Other',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  void _loadCategories() {
+    try {
+      final categories = ConfigService.get<List<String>>('item_categories');
+      setState(() {
+        _categories = categories;
+        _selectedCategory = categories.isNotEmpty ? categories.first : '';
+      });
+    } catch (e) {
+      print('Error loading categories: $e');
+      // Fallback to default categories
+      setState(() {
+        _categories = [
+          'Electronics',
+          'Clothing',
+          'Food & Beverages',
+          'Home & Garden',
+          'Sports',
+          'Books',
+          'Automotive',
+          'Health & Beauty',
+          'Toys & Games',
+          'Other',
+        ];
+        _selectedCategory = 'Electronics';
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -276,7 +300,7 @@ class _AddItemModalState extends ConsumerState<AddItemModal> {
             controller: controller,
             placeholder: placeholder,
             placeholderStyle: AppTheme.body2.copyWith(
-              color: AppTheme.textSecondaryColor.withValues(alpha: 0.6),
+              color: AppTheme.primaryColor.withOpacity(0.5),
             ),
             style: AppTheme.body1,
             keyboardType: keyboardType,
@@ -352,13 +376,12 @@ class _AddItemModalState extends ConsumerState<AddItemModal> {
         name: _nameController.text.trim(),
         category: _selectedCategory,
         unitPrice: double.tryParse(_unitPriceController.text) ?? 0.0,
-        gstPercentage:
-            double.tryParse(_gstController.text) ?? AppConstants.defaultGstRate,
+        gstPercentage: double.tryParse(_gstController.text) ??
+            ConfigService.get<double>('default_gst_rate'),
         openingStock: int.tryParse(_openingStockController.text) ?? 0,
         currentStock: int.tryParse(_openingStockController.text) ?? 0,
-        lowStockThreshold:
-            int.tryParse(_lowStockThresholdController.text) ??
-            AppConstants.defaultLowStockThreshold,
+        lowStockThreshold: int.tryParse(_lowStockThresholdController.text) ??
+            ConfigService.get<int>('default_low_stock_threshold'),
         description: _descriptionController.text.trim(),
         barcode: _barcodeController.text.trim(),
         sku: _skuController.text.trim(),
@@ -368,7 +391,7 @@ class _AddItemModalState extends ConsumerState<AddItemModal> {
       );
 
       // Add item using provider
-      // ref.read(stockProviderNotifier.notifier).addItem(item);
+      await ref.read(stockProviderNotifier.notifier).addItem(item);
 
       Navigator.pop(context);
     } catch (e) {
