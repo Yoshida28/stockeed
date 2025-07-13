@@ -19,12 +19,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _companyController = TextEditingController();
-  final _otpController = TextEditingController();
 
   bool _isLogin = true;
   bool _isLoading = false;
-  bool _awaitingOtp = false;
-  String _selectedRole = AppConstants.roleDistributor;
 
   @override
   void dispose() {
@@ -33,7 +30,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _companyController.dispose();
-    _otpController.dispose();
     super.dispose();
   }
 
@@ -128,25 +124,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      if (_awaitingOtp)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 16.0),
-                          child: CupertinoTextField(
-                            controller: _otpController,
-                            placeholder: 'Enter OTP',
-                            keyboardType: TextInputType.number,
-                            style: AppTheme.body1,
-                            prefix: Padding(
-                              padding: const EdgeInsets.only(left: 16),
-                              child: Icon(CupertinoIcons.number,
-                                  color: AppTheme.primaryColor, size: 20),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            decoration: null,
-                          ),
-                        ),
-
                       _buildTextField(
                         controller: _passwordController,
                         placeholder: 'Password',
@@ -155,13 +132,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      if (_awaitingOtp)
-                        CupertinoButton.filled(
-                          onPressed: _isLoading ? null : _handleOtpSubmit,
-                          child: _isLoading
-                              ? const CupertinoActivityIndicator()
-                              : const Text('Verify OTP'),
-                        ),
                       // Submit Button
                       CupertinoButton.filled(
                         onPressed: _isLoading ? null : _handleSubmit,
@@ -237,7 +207,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _handleSubmit() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Basic validation
+    if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
+      _showErrorDialog('Please fill in all required fields');
+      return;
+    }
+
+    if (!_isLogin) {
+      if (_nameController.text.trim().isEmpty || 
+          _phoneController.text.trim().isEmpty || 
+          _companyController.text.trim().isEmpty) {
+        _showErrorDialog('Please fill in all required fields');
+        return;
+      }
+    }
 
     setState(() {
       _isLoading = true;
@@ -251,19 +234,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
-      } else {
-        await authProvider.signUp(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-          name: _nameController.text.trim(),
-          phone: _phoneController.text.trim(),
-          companyName: _companyController.text.trim(),
-          role: 'distributor', // Always set to distributor
-        );
-        setState(() {
-          _awaitingOtp = true;
-        });
-      }
+              } else {
+          await authProvider.signUp(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+            name: _nameController.text.trim(),
+            phone: _phoneController.text.trim(),
+            companyName: _companyController.text.trim(),
+            role: 'distributor', // Always set to distributor
+          );
+        }
     } catch (e, stack) {
       debugPrint('Auth error: $e');
       debugPrint('Stack: $stack');
@@ -276,33 +256,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _handleOtpSubmit() async {
-    setState(() {
-      _isLoading = true;
-    });
-    try {
-      final authProvider = ref.read(authProviderNotifier.notifier);
-
-      await authProvider.verifyOtp(
-        email: _emailController.text.trim(),
-        otp: _otpController.text.trim(),
-        name: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        companyName: _companyController.text.trim(),
-        role: 'distributor', // Always set to distributor
-      );
-
-      setState(() {
-        _awaitingOtp = false;
-      });
-    } catch (e, stack) {
-      debugPrint('OTP verification error: $e');
-      debugPrint('Stack: $stack');
-      _showErrorDialog(e.toString());
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    // OTP functionality removed for local authentication
+    _showErrorDialog('OTP verification is not available in local mode');
   }
 
   void _showErrorDialog(String message) {

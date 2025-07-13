@@ -1,6 +1,4 @@
-import 'package:isar/isar.dart';
 import 'package:stocked/core/services/database_service.dart';
-import 'package:stocked/core/constants/app_constants.dart';
 
 class ConfigService {
   static final Map<String, dynamic> _cache = {};
@@ -56,7 +54,6 @@ class ConfigService {
     'date_format': 'dd/MM/yyyy',
     'time_format': 'HH:mm',
     'max_file_size_mb': 10,
-    'sync_interval_minutes': 15,
     'backup_enabled': true,
     'notifications_enabled': true,
   };
@@ -82,12 +79,57 @@ class ConfigService {
 
   static Future<void> _loadFromDatabase() async {
     try {
-      // This would load from a settings table in the database
-      // For now, we'll use the default config
-      _cache.addAll(_defaultConfig);
+      // Load settings from database
+      final settings = [
+        'item_categories',
+        'payment_modes',
+        'voucher_types',
+        'order_statuses',
+        'payment_statuses',
+        'expense_categories',
+        'default_gst_rate',
+        'default_low_stock_threshold',
+        'company_name',
+        'app_version',
+        'currency_symbol',
+        'date_format',
+        'time_format',
+        'max_file_size_mb',
+        'backup_enabled',
+        'notifications_enabled',
+      ];
+
+      for (final key in settings) {
+        final value = await DatabaseService.getSetting(key);
+        if (value != null) {
+          _cache[key] = _parseValue(key, value);
+        }
+      }
     } catch (e) {
       print('Error loading config from database: $e');
       _cache.addAll(_defaultConfig);
+    }
+  }
+
+  static dynamic _parseValue(String key, String value) {
+    switch (key) {
+      case 'item_categories':
+      case 'payment_modes':
+      case 'voucher_types':
+      case 'order_statuses':
+      case 'payment_statuses':
+      case 'expense_categories':
+        return value.split(',');
+      case 'default_gst_rate':
+      case 'max_file_size_mb':
+        return double.tryParse(value) ?? _defaultConfig[key];
+      case 'default_low_stock_threshold':
+        return int.tryParse(value) ?? _defaultConfig[key];
+      case 'backup_enabled':
+      case 'notifications_enabled':
+        return value.toLowerCase() == 'true';
+      default:
+        return value;
     }
   }
 
@@ -137,9 +179,14 @@ class ConfigService {
 
   static Future<void> _saveToDatabase(String key, dynamic value) async {
     try {
-      // This would save to a settings table in the database
-      // For now, we'll just update the cache
-      print('Saving config to database: $key = $value');
+      String stringValue;
+      if (value is List) {
+        stringValue = value.join(',');
+      } else {
+        stringValue = value.toString();
+      }
+
+      await DatabaseService.setSetting(key, stringValue);
     } catch (e) {
       print('Error saving config to database: $e');
     }

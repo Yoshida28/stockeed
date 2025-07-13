@@ -1,218 +1,790 @@
-import 'package:isar/isar.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:stocked/core/models/user_model.dart';
 import 'package:stocked/core/models/item_model.dart';
 import 'package:stocked/core/models/order_model.dart';
 import 'package:stocked/core/models/voucher_model.dart';
 import 'package:stocked/core/models/payment_model.dart';
 import 'package:stocked/core/models/expense_model.dart';
-import 'package:stocked/core/constants/app_constants.dart';
 
 class DatabaseService {
-  static late Isar _isar;
+  static Database? _database;
+  static const String _databaseName = 'stocked.db';
+  static const int _databaseVersion = 1;
 
-  static Isar get isar => _isar;
+  static Database get database {
+    if (_database == null) {
+      throw Exception('Database not initialized. Call initialize() first.');
+    }
+    return _database!;
+  }
 
   static Future<void> initialize() async {
-    final dir = await getApplicationDocumentsDirectory();
+    if (kIsWeb) {
+      // For web, we'll use a simple in-memory database for now
+      // In a production app, you'd want to use IndexedDB or a web-compatible database
+      print('Running on web - using in-memory database');
+      _database = await openDatabase(
+        ':memory:',
+        version: _databaseVersion,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
+    } else {
+      // For desktop platforms (Windows, macOS, Linux), initialize FFI
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
 
-    _isar = await Isar.open(
-      [
-        UserSchema,
-        ItemSchema,
-        OrderSchema,
-        OrderItemSchema,
-        VoucherSchema,
-        PaymentSchema,
-        ExpenseSchema,
-      ],
-      directory: dir.path,
-      inspector: false, // Disable Isar Inspector banner
-    );
+      // For mobile platforms, use the file system
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final path = join(documentsDirectory.path, _databaseName);
+
+      _database = await openDatabase(
+        path,
+        version: _databaseVersion,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
+    }
+
+    // Seed initial data
+    await _seedInitialData();
+  }
+
+  static Future<void> _onCreate(Database db, int version) async {
+    // Users table
+    await db.execute('''
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        name TEXT,
+        phone TEXT,
+        company_name TEXT,
+        role TEXT NOT NULL DEFAULT 'retail_client',
+        address TEXT,
+        gst_number TEXT,
+        pan_number TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // Items table
+    await db.execute('''
+      CREATE TABLE items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        category TEXT,
+        unit_price REAL DEFAULT 0.0,
+        gst_percentage REAL DEFAULT 18.0,
+        opening_stock INTEGER DEFAULT 0,
+        current_stock INTEGER DEFAULT 0,
+        low_stock_threshold INTEGER DEFAULT 10,
+        description TEXT,
+        barcode TEXT,
+        sku TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // Orders table
+    await db.execute('''
+      CREATE TABLE orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_number TEXT UNIQUE,
+        status TEXT DEFAULT 'pending',
+        client_id INTEGER,
+        client_name TEXT,
+        total_amount REAL DEFAULT 0.0,
+        gst_amount REAL DEFAULT 0.0,
+        net_amount REAL DEFAULT 0.0,
+        payment_status TEXT DEFAULT 'pending',
+        paid_amount REAL DEFAULT 0.0,
+        notes TEXT,
+        order_date TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (client_id) REFERENCES users (id)
+      )
+    ''');
+
+    // Order items table
+    await db.execute('''
+      CREATE TABLE order_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL,
+        item_id INTEGER NOT NULL,
+        item_name TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        unit_price REAL NOT NULL,
+        gst_percentage REAL DEFAULT 18.0,
+        total_amount REAL NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (order_id) REFERENCES orders (id),
+        FOREIGN KEY (item_id) REFERENCES items (id)
+      )
+    ''');
+
+    // Vouchers table
+    await db.execute('''
+      CREATE TABLE vouchers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        voucher_number TEXT UNIQUE,
+        voucher_type TEXT NOT NULL,
+        voucher_date TEXT NOT NULL,
+        party_name TEXT,
+        party_id INTEGER,
+        total_amount REAL DEFAULT 0.0,
+        gst_amount REAL DEFAULT 0.0,
+        net_amount REAL DEFAULT 0.0,
+        payment_mode TEXT,
+        reference_number TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (party_id) REFERENCES users (id)
+      )
+    ''');
+
+    // Voucher items table
+    await db.execute('''
+      CREATE TABLE voucher_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        voucher_id INTEGER NOT NULL,
+        item_id INTEGER NOT NULL,
+        item_name TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        unit_price REAL NOT NULL,
+        gst_percentage REAL DEFAULT 18.0,
+        total_amount REAL NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (voucher_id) REFERENCES vouchers (id),
+        FOREIGN KEY (item_id) REFERENCES items (id)
+      )
+    ''');
+
+    // Payments table
+    await db.execute('''
+      CREATE TABLE payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        payment_number TEXT UNIQUE,
+        payment_date TEXT NOT NULL,
+        payment_type TEXT NOT NULL,
+        party_id INTEGER,
+        party_name TEXT,
+        amount REAL NOT NULL,
+        payment_mode TEXT,
+        reference_number TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (party_id) REFERENCES users (id)
+      )
+    ''');
+
+    // Expenses table
+    await db.execute('''
+      CREATE TABLE expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        expense_number TEXT UNIQUE,
+        expense_date TEXT NOT NULL,
+        category TEXT NOT NULL,
+        description TEXT NOT NULL,
+        amount REAL NOT NULL,
+        payment_mode TEXT,
+        reference_number TEXT,
+        vendor_name TEXT,
+        gst_number TEXT,
+        gst_amount REAL DEFAULT 0.0,
+        net_amount REAL DEFAULT 0.0,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // Stock movements table
+    await db.execute('''
+      CREATE TABLE stock_movements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id INTEGER NOT NULL,
+        movement_type TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        previous_stock INTEGER NOT NULL,
+        new_stock INTEGER NOT NULL,
+        reference_type TEXT,
+        reference_id INTEGER,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (item_id) REFERENCES items (id)
+      )
+    ''');
+
+    // Settings table
+    await db.execute('''
+      CREATE TABLE settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        setting_key TEXT UNIQUE NOT NULL,
+        setting_value TEXT,
+        setting_type TEXT DEFAULT 'string',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // Create indexes for better performance
+    await db.execute('CREATE INDEX idx_users_email ON users(email)');
+    await db.execute('CREATE INDEX idx_users_role ON users(role)');
+    await db.execute('CREATE INDEX idx_items_category ON items(category)');
+    await db.execute('CREATE INDEX idx_items_name ON items(name)');
+    await db.execute('CREATE INDEX idx_orders_client_id ON orders(client_id)');
+    await db.execute('CREATE INDEX idx_orders_status ON orders(status)');
+    await db
+        .execute('CREATE INDEX idx_orders_order_date ON orders(order_date)');
+    await db.execute(
+        'CREATE INDEX idx_order_items_order_id ON order_items(order_id)');
+    await db.execute(
+        'CREATE INDEX idx_vouchers_voucher_type ON vouchers(voucher_type)');
+    await db.execute(
+        'CREATE INDEX idx_vouchers_voucher_date ON vouchers(voucher_date)');
+    await db
+        .execute('CREATE INDEX idx_payments_party_id ON payments(party_id)');
+    await db.execute(
+        'CREATE INDEX idx_payments_payment_date ON payments(payment_date)');
+    await db
+        .execute('CREATE INDEX idx_expenses_category ON expenses(category)');
+    await db.execute(
+        'CREATE INDEX idx_expenses_expense_date ON expenses(expense_date)');
+    await db.execute(
+        'CREATE INDEX idx_stock_movements_item_id ON stock_movements(item_id)');
+    await db.execute(
+        'CREATE INDEX idx_stock_movements_created_at ON stock_movements(created_at)');
+  }
+
+  static Future<void> _onUpgrade(
+      Database db, int oldVersion, int newVersion) async {
+    // Handle database upgrades here
+    if (oldVersion < newVersion) {
+      // Add migration logic here
+    }
+  }
+
+  static Future<void> _seedInitialData() async {
+    // Check if data already exists
+    final userCount = Sqflite.firstIntValue(
+        await database.rawQuery('SELECT COUNT(*) FROM users'));
+
+    if (userCount == 0) {
+      // Seed default settings
+      await _seedSettings();
+
+      // Seed sample items
+      await _seedSampleItems();
+
+      // Seed sample users
+      await _seedSampleUsers();
+    }
+  }
+
+  static Future<void> _seedSettings() async {
+    final settings = [
+      {
+        'key': 'item_categories',
+        'value':
+            'Electronics,Clothing,Food & Beverages,Home & Garden,Sports,Books,Automotive,Health & Beauty,Toys & Games,Other'
+      },
+      {
+        'key': 'payment_modes',
+        'value': 'Cash,Bank Transfer,UPI,Cheque,Credit Card,Debit Card'
+      },
+      {
+        'key': 'voucher_types',
+        'value': 'Sales,Purchase,Payment,Receipt,Journal'
+      },
+      {
+        'key': 'order_statuses',
+        'value': 'Pending,Accepted,Dispatched,Delivered,Cancelled'
+      },
+      {'key': 'payment_statuses', 'value': 'Pending,Partial,Paid'},
+      {
+        'key': 'expense_categories',
+        'value':
+            'Office Supplies,Travel,Marketing,Utilities,Rent,Salaries,Equipment,Maintenance,Other'
+      },
+      {'key': 'default_gst_rate', 'value': '18.0'},
+      {'key': 'default_low_stock_threshold', 'value': '10'},
+      {'key': 'company_name', 'value': 'Stocked Business'},
+      {'key': 'app_version', 'value': '1.0.0'},
+      {'key': 'currency_symbol', 'value': '₹'},
+      {'key': 'date_format', 'value': 'dd/MM/yyyy'},
+      {'key': 'time_format', 'value': 'HH:mm'},
+    ];
+
+    for (final setting in settings) {
+      await database.insert('settings', {
+        'setting_key': setting['key'],
+        'setting_value': setting['value'],
+        'setting_type': 'string',
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    }
+  }
+
+  static Future<void> _seedSampleItems() async {
+    final items = [
+      {
+        'name': 'Laptop Dell Inspiron',
+        'category': 'Electronics',
+        'unit_price': 45000.0,
+        'gst_percentage': 18.0,
+        'opening_stock': 50,
+        'current_stock': 45,
+        'low_stock_threshold': 10,
+        'description': 'High-performance laptop for business use',
+        'barcode': 'DELL001',
+        'sku': 'LAP-DELL-001',
+      },
+      {
+        'name': 'Wireless Mouse',
+        'category': 'Electronics',
+        'unit_price': 1200.0,
+        'gst_percentage': 18.0,
+        'opening_stock': 100,
+        'current_stock': 85,
+        'low_stock_threshold': 20,
+        'description': 'Ergonomic wireless mouse',
+        'barcode': 'MOUSE001',
+        'sku': 'ACC-MOUSE-001',
+      },
+      {
+        'name': 'Office Chair',
+        'category': 'Office',
+        'unit_price': 3500.0,
+        'gst_percentage': 18.0,
+        'opening_stock': 30,
+        'current_stock': 25,
+        'low_stock_threshold': 5,
+        'description': 'Comfortable office chair with armrests',
+        'barcode': 'CHAIR001',
+        'sku': 'OFF-CHAIR-001',
+      },
+      {
+        'name': 'Printer Paper A4',
+        'category': 'Office',
+        'unit_price': 250.0,
+        'gst_percentage': 18.0,
+        'opening_stock': 200,
+        'current_stock': 180,
+        'low_stock_threshold': 50,
+        'description': 'High-quality A4 printer paper',
+        'barcode': 'PAPER001',
+        'sku': 'OFF-PAPER-001',
+      },
+    ];
+
+    for (final item in items) {
+      await database.insert('items', {
+        ...item,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    }
+  }
+
+  static Future<void> _seedSampleUsers() async {
+    final users = [
+      {
+        'email': 'admin@stocked.com',
+        'name': 'Admin User',
+        'phone': '+91-9876543210',
+        'company_name': 'Stocked Business',
+        'role': 'distributor',
+        'address': '123 Business Street, Mumbai, Maharashtra',
+        'gst_number': '27ABCDE1234F1Z5',
+        'pan_number': 'ABCDE1234F',
+      },
+      {
+        'email': 'client1@example.com',
+        'name': 'TechCorp Solutions',
+        'phone': '+91-9876543211',
+        'company_name': 'TechCorp Solutions Pvt Ltd',
+        'role': 'retail_client',
+        'address': '456 Tech Park, Bangalore, Karnataka',
+        'gst_number': '29TECHC1234F1Z5',
+        'pan_number': 'TECHC1234F',
+      },
+      {
+        'email': 'client2@example.com',
+        'name': 'OfficePlus Store',
+        'phone': '+91-9876543212',
+        'company_name': 'OfficePlus Store',
+        'role': 'retail_client',
+        'address': '789 Office Complex, Delhi, NCR',
+        'gst_number': '07OFFIC1234F1Z5',
+        'pan_number': 'OFFIC1234F',
+      },
+    ];
+
+    for (final user in users) {
+      await database.insert('users', {
+        ...user,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    }
   }
 
   static Future<void> close() async {
-    await _isar.close();
+    await _database?.close();
+  }
+
+  // Settings operations
+  static Future<String?> getSetting(String key) async {
+    final result = await database.query(
+      'settings',
+      where: 'setting_key = ?',
+      whereArgs: [key],
+    );
+    return result.isNotEmpty ? result.first['setting_value'] as String? : null;
+  }
+
+  static Future<void> setSetting(String key, String value) async {
+    await database.insert(
+      'settings',
+      {
+        'setting_key': key,
+        'setting_value': value,
+        'setting_type': 'string',
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   // User operations
   static Future<User?> getUserByEmail(String email) async {
-    return await _isar.users.where().emailEqualTo(email).findFirst();
+    final result = await database.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+    return result.isNotEmpty ? User.fromMap(result.first) : null;
   }
 
   static Future<User?> getUserById(int id) async {
-    return await _isar.users.get(id);
+    final result = await database.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return result.isNotEmpty ? User.fromMap(result.first) : null;
   }
 
   static Future<void> saveUser(User user) async {
-    await _isar.writeTxn(() async {
-      await _isar.users.put(user);
-    });
+    if (user.id == null) {
+      await database.insert('users', user.toMap());
+    } else {
+      await database.update(
+        'users',
+        user.toMap(),
+        where: 'id = ?',
+        whereArgs: [user.id],
+      );
+    }
   }
 
   static Future<List<User>> getAllUsers() async {
-    return await _isar.users.where().findAll();
+    final result = await database.query('users');
+    return result.map((map) => User.fromMap(map)).toList();
   }
 
   // Item operations
   static Future<List<Item>> getAllItems() async {
-    return await _isar.items.where().findAll();
+    final result = await database.query('items');
+    return result.map((map) => Item.fromMap(map)).toList();
   }
 
   static Future<Item?> getItemById(int id) async {
-    return await _isar.items.get(id);
+    final result = await database.query(
+      'items',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return result.isNotEmpty ? Item.fromMap(result.first) : null;
   }
 
   static Future<void> saveItem(Item item) async {
-    await _isar.writeTxn(() async {
-      await _isar.items.put(item);
-    });
+    if (item.id == null) {
+      await database.insert('items', item.toMap());
+    } else {
+      await database.update(
+        'items',
+        item.toMap(),
+        where: 'id = ?',
+        whereArgs: [item.id],
+      );
+    }
   }
 
   static Future<void> deleteItem(int id) async {
-    await _isar.writeTxn(() async {
-      await _isar.items.delete(id);
-    });
+    await database.delete(
+      'items',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // Order operations
   static Future<List<Order>> getAllOrders() async {
-    return await _isar.orders.where().findAll();
+    final result = await database.query('orders');
+    return result.map((map) => Order.fromMap(map)).toList();
   }
 
   static Future<Order?> getOrderById(int id) async {
-    return await _isar.orders.get(id);
+    final result = await database.query(
+      'orders',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return result.isNotEmpty ? Order.fromMap(result.first) : null;
   }
 
   static Future<void> saveOrder(Order order) async {
-    await _isar.writeTxn(() async {
-      await _isar.orders.put(order);
-    });
+    if (order.id == null) {
+      await database.insert('orders', order.toMap());
+    } else {
+      await database.update(
+        'orders',
+        order.toMap(),
+        where: 'id = ?',
+        whereArgs: [order.id],
+      );
+    }
+  }
+
+  static Future<void> deleteOrder(int id) async {
+    await database.delete(
+      'orders',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // OrderItem operations
   static Future<List<OrderItem>> getOrderItemsByOrderId(int orderId) async {
-    return await _isar.orderItems
-        .where()
-        .filter()
-        .orderIdEqualTo(orderId)
-        .findAll();
+    final result = await database.query(
+      'order_items',
+      where: 'order_id = ?',
+      whereArgs: [orderId],
+    );
+    return result.map((map) => OrderItem.fromMap(map)).toList();
   }
 
   static Future<void> saveOrderItem(OrderItem orderItem) async {
-    await _isar.writeTxn(() async {
-      await _isar.orderItems.put(orderItem);
-    });
+    if (orderItem.id == null) {
+      await database.insert('order_items', orderItem.toMap());
+    } else {
+      await database.update(
+        'order_items',
+        orderItem.toMap(),
+        where: 'id = ?',
+        whereArgs: [orderItem.id],
+      );
+    }
   }
 
   // Voucher operations
   static Future<List<Voucher>> getAllVouchers() async {
-    return await _isar.vouchers.where().findAll();
+    final result = await database.query('vouchers');
+    return result.map((map) => Voucher.fromMap(map)).toList();
   }
 
   static Future<Voucher?> getVoucherById(int id) async {
-    return await _isar.vouchers.get(id);
+    final result = await database.query(
+      'vouchers',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return result.isNotEmpty ? Voucher.fromMap(result.first) : null;
   }
 
   static Future<void> saveVoucher(Voucher voucher) async {
-    await _isar.writeTxn(() async {
-      await _isar.vouchers.put(voucher);
-    });
+    if (voucher.id == null) {
+      await database.insert('vouchers', voucher.toMap());
+    } else {
+      await database.update(
+        'vouchers',
+        voucher.toMap(),
+        where: 'id = ?',
+        whereArgs: [voucher.id],
+      );
+    }
   }
 
   // Payment operations
   static Future<List<Payment>> getAllPayments() async {
-    return await _isar.payments.where().findAll();
+    final result = await database.query('payments');
+    return result.map((map) => Payment.fromMap(map)).toList();
   }
 
   static Future<Payment?> getPaymentById(int id) async {
-    return await _isar.payments.get(id);
+    final result = await database.query(
+      'payments',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return result.isNotEmpty ? Payment.fromMap(result.first) : null;
   }
 
   static Future<void> savePayment(Payment payment) async {
-    await _isar.writeTxn(() async {
-      await _isar.payments.put(payment);
-    });
+    if (payment.id == null) {
+      await database.insert('payments', payment.toMap());
+    } else {
+      await database.update(
+        'payments',
+        payment.toMap(),
+        where: 'id = ?',
+        whereArgs: [payment.id],
+      );
+    }
+  }
+
+  static Future<void> deletePayment(int id) async {
+    await database.delete(
+      'payments',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // Expense operations
   static Future<List<Expense>> getAllExpenses() async {
-    return await _isar.expenses.where().findAll();
+    final result = await database.query('expenses');
+    return result.map((map) => Expense.fromMap(map)).toList();
   }
 
   static Future<Expense?> getExpenseById(int id) async {
-    return await _isar.expenses.get(id);
+    final result = await database.query(
+      'expenses',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return result.isNotEmpty ? Expense.fromMap(result.first) : null;
   }
 
   static Future<void> saveExpense(Expense expense) async {
-    await _isar.writeTxn(() async {
-      await _isar.expenses.put(expense);
-    });
+    if (expense.id == null) {
+      await database.insert('expenses', expense.toMap());
+    } else {
+      await database.update(
+        'expenses',
+        expense.toMap(),
+        where: 'id = ?',
+        whereArgs: [expense.id],
+      );
+    }
   }
 
   static Future<void> deleteExpense(int id) async {
-    await _isar.writeTxn(() async {
-      await _isar.expenses.delete(id);
+    await database.delete(
+      'expenses',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // Analytics operations
+  static Future<Map<String, dynamic>> getDashboardStats() async {
+    final totalItems = Sqflite.firstIntValue(
+            await database.rawQuery('SELECT COUNT(*) FROM items')) ??
+        0;
+
+    final lowStockItems = Sqflite.firstIntValue(await database.rawQuery('''
+        SELECT COUNT(*) FROM items 
+        WHERE current_stock <= low_stock_threshold
+      ''')) ?? 0;
+
+    final pendingOrders = Sqflite.firstIntValue(await database.rawQuery('''
+        SELECT COUNT(*) FROM orders 
+        WHERE status = 'pending'
+      ''')) ?? 0;
+
+    final todayOrders = Sqflite.firstIntValue(await database.rawQuery('''
+        SELECT COUNT(*) FROM orders 
+        WHERE DATE(order_date) = DATE('now')
+      ''')) ?? 0;
+
+    final todaySalesResult = await database.rawQuery('''
+        SELECT COALESCE(SUM(total_amount), 0) as total FROM orders 
+        WHERE DATE(order_date) = DATE('now')
+      ''');
+    final todaySales =
+        (todaySalesResult.first['total'] as num?)?.toDouble() ?? 0.0;
+
+    final todayPaymentsResult = await database.rawQuery('''
+        SELECT COALESCE(SUM(amount), 0) as total FROM payments 
+        WHERE payment_type = 'received' AND DATE(payment_date) = DATE('now')
+      ''');
+    final todayPayments =
+        (todayPaymentsResult.first['total'] as num?)?.toDouble() ?? 0.0;
+
+    final todayExpensesResult = await database.rawQuery('''
+        SELECT COALESCE(SUM(amount), 0) as total FROM expenses 
+        WHERE DATE(expense_date) = DATE('now')
+      ''');
+    final todayExpenses =
+        (todayExpensesResult.first['total'] as num?)?.toDouble() ?? 0.0;
+
+    return {
+      'total_items': totalItems,
+      'low_stock_items': lowStockItems,
+      'pending_orders': pendingOrders,
+      'today_orders': todayOrders,
+      'today_sales': todaySales,
+      'today_payments': todayPayments,
+      'today_expenses': todayExpenses,
+    };
+  }
+
+  // Stock movement operations
+  static Future<void> recordStockMovement({
+    required int itemId,
+    required String movementType,
+    required int quantity,
+    required int previousStock,
+    required int newStock,
+    String? referenceType,
+    int? referenceId,
+    String? notes,
+  }) async {
+    await database.insert('stock_movements', {
+      'item_id': itemId,
+      'movement_type': movementType,
+      'quantity': quantity,
+      'previous_stock': previousStock,
+      'new_stock': newStock,
+      'reference_type': referenceType,
+      'reference_id': referenceId,
+      'notes': notes,
+      'created_at': DateTime.now().toIso8601String(),
     });
   }
 
-  // Sync operations
-  static Future<List<dynamic>> getPendingSyncData() async {
-    final List<dynamic> pendingData = [];
-    
-    try {
-      // Get pending users
-      final pendingUsers = await _isar.users
-          .where()
-          .filter()
-          .syncStatusEqualTo(AppConstants.syncStatusPending)
-          .findAll();
-      pendingData.addAll(pendingUsers);
-      
-      // Get pending items
-      final pendingItems = await _isar.items
-          .where()
-          .filter()
-          .syncStatusEqualTo(AppConstants.syncStatusPending)
-          .findAll();
-      pendingData.addAll(pendingItems);
-      
-      // Get pending orders
-      final pendingOrders = await _isar.orders
-          .where()
-          .filter()
-          .syncStatusEqualTo(AppConstants.syncStatusPending)
-          .findAll();
-      pendingData.addAll(pendingOrders);
-      
-      // Get pending vouchers
-      final pendingVouchers = await _isar.vouchers
-          .where()
-          .filter()
-          .syncStatusEqualTo(AppConstants.syncStatusPending)
-          .findAll();
-      pendingData.addAll(pendingVouchers);
-      
-      // Get pending payments
-      final pendingPayments = await _isar.payments
-          .where()
-          .filter()
-          .syncStatusEqualTo(AppConstants.syncStatusPending)
-          .findAll();
-      pendingData.addAll(pendingPayments);
-      
-      // Get pending expenses
-      final pendingExpenses = await _isar.expenses
-          .where()
-          .filter()
-          .syncStatusEqualTo(AppConstants.syncStatusPending)
-          .findAll();
-      pendingData.addAll(pendingExpenses);
-      
-    } catch (e) {
-      print('Error getting pending sync data: $e');
-    }
-    
-    return pendingData;
+  static Future<void> updateItemStock(int itemId, int newStock) async {
+    await database.update(
+      'items',
+      {
+        'current_stock': newStock,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [itemId],
+    );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:stocked/core/theme/app_theme.dart';
+import 'package:stocked/core/widgets/universal_navbar.dart';
+import 'package:stocked/core/providers/navigation_provider.dart';
 import 'package:stocked/core/models/item_model.dart';
 import 'package:stocked/core/services/database_service.dart';
 import 'package:stocked/core/services/config_service.dart';
@@ -57,132 +59,169 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
   @override
   Widget build(BuildContext context) {
     final stockState = ref.watch(stockProviderNotifier);
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
 
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('Stock Management'),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () => _showAddItemModal(context),
-          child: const Icon(CupertinoIcons.add),
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Search and Filter Section
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: AppTheme.glassmorphicDecoration,
-              margin: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // Search Bar
-                  CupertinoSearchTextField(
-                    placeholder: 'Search items...',
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value;
-                      });
-                    },
-                    style: AppTheme.body1,
-                    prefixIcon: Icon(CupertinoIcons.search,
-                        color: AppTheme.primaryColor),
+    return Column(
+      children: [
+        // Header with Add Button
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Stock Management',
+                  style: AppTheme.heading2.copyWith(
+                    color: AppTheme.primaryColor,
                   ),
-                  const SizedBox(height: 16),
-
-                  // Category Filter
-                  Row(
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 140),
+                child: CupertinoButton(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: AppTheme.primaryColor,
+                  borderRadius: BorderRadius.circular(20),
+                  onPressed: () => _showAddItemModal(context),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: Container(
-                          height: 40,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _categories.length,
-                            itemBuilder: (context, index) {
-                              final category = _categories[index];
-                              final isSelected = _selectedCategory == category;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: CupertinoButton(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16),
-                                  color: isSelected
-                                      ? AppTheme.primaryColor
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(20),
-                                  onPressed: () {
-                                    setState(() {
-                                      _selectedCategory = category;
-                                    });
-                                  },
-                                  child: Text(
-                                    category,
-                                    style: AppTheme.body2.copyWith(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : AppTheme.textPrimaryColor,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      CupertinoButton(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        color: AppTheme.primaryColor,
-                        borderRadius: BorderRadius.circular(20),
-                        onPressed: _showManageCategoriesModal,
-                        child: const Icon(CupertinoIcons.settings,
-                            color: Colors.white, size: 20),
-                      ),
+                      Icon(CupertinoIcons.add, color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      Flexible(
+                          child: Text('Add Item',
+                              style: TextStyle(color: Colors.white),
+                              overflow: TextOverflow.ellipsis)),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-
-            // Stock Summary Cards
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildSummaryCard(
-                      title: 'Total Items',
-                      value: '${stockState.items.length}',
-                      icon: CupertinoIcons.cube_box,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildSummaryCard(
-                      title: 'Low Stock',
-                      value:
-                          '${stockState.items.where((item) => (item.currentStock ?? 0) <= (item.lowStockThreshold ?? 10)).length}',
-                      icon: CupertinoIcons.exclamationmark_triangle,
-                      color: AppTheme.warningColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Items List
-            Expanded(
-              child: stockState.isLoading
-                  ? const Center(child: CupertinoActivityIndicator())
-                  : _buildItemsList(stockState.items),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+
+        // Search and Filter Section
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: AppTheme.glassmorphicDecoration,
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: [
+              // Search Bar
+              CupertinoSearchTextField(
+                placeholder: 'Search items...',
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+                style: AppTheme.body1,
+                prefixIcon:
+                    Icon(CupertinoIcons.search, color: AppTheme.primaryColor),
+              ),
+              const SizedBox(height: 16),
+
+              // Category Filter
+              Row(
+                children: [
+                  Flexible(
+                    child: SizedBox(
+                      height: 40,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _categories.length,
+                        itemBuilder: (context, index) {
+                          final category = _categories[index];
+                          final isSelected = _selectedCategory == category;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: CupertinoButton(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              color: isSelected
+                                  ? AppTheme.primaryColor
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(20),
+                              onPressed: () {
+                                setState(() {
+                                  _selectedCategory = category;
+                                });
+                              },
+                              child: Text(
+                                category,
+                                style: AppTheme.body2.copyWith(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : AppTheme.textPrimaryColor,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 44),
+                    child: CupertinoButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(20),
+                      onPressed: _showManageCategoriesModal,
+                      child: const Icon(CupertinoIcons.settings,
+                          color: Colors.white, size: 20),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Stock Summary Cards
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  title: 'Total Items',
+                  value: '${stockState.items.length}',
+                  icon: CupertinoIcons.cube_box,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildSummaryCard(
+                  title: 'Low Stock',
+                  value:
+                      '${stockState.items.where((item) => (item.currentStock ?? 0) <= (item.lowStockThreshold ?? 10)).length}',
+                  icon: CupertinoIcons.exclamationmark_triangle,
+                  color: AppTheme.warningColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Items List
+        Expanded(
+          child: stockState.isLoading
+              ? const Center(child: CupertinoActivityIndicator())
+              : _buildItemsList(stockState.items),
+        ),
+      ],
     );
   }
 

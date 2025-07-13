@@ -1,30 +1,19 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:window_size/window_size.dart';
-import 'package:stocked/core/constants/app_constants.dart';
 import 'package:stocked/core/theme/app_theme.dart';
 import 'package:stocked/features/auth/presentation/screens/auth_screen.dart';
 import 'package:stocked/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:stocked/core/services/database_service.dart';
-import 'package:stocked/core/services/sync_service.dart';
 import 'package:stocked/core/services/config_service.dart';
+import 'package:stocked/features/auth/presentation/providers/auth_provider.dart';
+import 'home_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase
-  await Supabase.initialize(
-    url: AppConstants.supabaseUrl,
-    anonKey: AppConstants.supabaseAnonKey,
-  );
-
   // Initialize local database
   await DatabaseService.initialize();
-
-  // Initialize sync service
-  await SyncService.initialize();
 
   // Initialize config service
   await ConfigService.initialize();
@@ -51,19 +40,20 @@ class AuthWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final supabase = Supabase.instance.client;
+    final authState = ref.watch(authProviderNotifier);
 
-    return StreamBuilder<AuthState>(
-      stream: supabase.auth.onAuthStateChange,
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          final session = snapshot.data!.session;
-          if (session != null) {
-            return const DashboardScreen();
-          }
-        }
-        return const AuthScreen();
-      },
-    );
+    if (authState.isLoading) {
+      return const CupertinoPageScaffold(
+        child: Center(
+          child: CupertinoActivityIndicator(),
+        ),
+      );
+    }
+
+    if (authState.user != null) {
+      return const HomeShell();
+    }
+
+    return const AuthScreen();
   }
 }

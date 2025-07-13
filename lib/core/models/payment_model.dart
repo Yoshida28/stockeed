@@ -1,81 +1,99 @@
-import 'package:isar/isar.dart';
-
-part 'payment_model.g.dart';
-
-@collection
 class Payment {
-  Id id = Isar.autoIncrement;
-
+  int? id;
   String? paymentNumber;
-  String? clientId;
-  String? clientName;
+  String? paymentType; // received, paid
+  int? partyId;
+  String? partyName;
   double? amount;
   String? paymentMode;
   String? referenceNumber;
-  String? proofUrl;
-  String? status; // pending, approved, rejected
   String? notes;
-
   DateTime? paymentDate;
   DateTime? createdAt;
   DateTime? updatedAt;
 
-  // Sync fields
-  String? syncStatus;
-  DateTime? lastSyncedAt;
-  String? cloudId;
-
   Payment({
+    this.id,
     this.paymentNumber,
-    this.clientId,
-    this.clientName,
+    this.paymentType,
+    this.partyId,
+    this.partyName,
     this.amount,
     this.paymentMode,
     this.referenceNumber,
-    this.proofUrl,
-    this.status,
     this.notes,
     this.paymentDate,
     this.createdAt,
     this.updatedAt,
-    this.syncStatus,
-    this.lastSyncedAt,
-    this.cloudId,
   });
 
   Payment copyWith({
+    int? id,
     String? paymentNumber,
-    String? clientId,
-    String? clientName,
+    String? paymentType,
+    int? partyId,
+    String? partyName,
     double? amount,
     String? paymentMode,
     String? referenceNumber,
-    String? proofUrl,
-    String? status,
     String? notes,
     DateTime? paymentDate,
     DateTime? createdAt,
     DateTime? updatedAt,
-    String? syncStatus,
-    DateTime? lastSyncedAt,
-    String? cloudId,
   }) {
     return Payment(
+      id: id ?? this.id,
       paymentNumber: paymentNumber ?? this.paymentNumber,
-      clientId: clientId ?? this.clientId,
-      clientName: clientName ?? this.clientName,
+      paymentType: paymentType ?? this.paymentType,
+      partyId: partyId ?? this.partyId,
+      partyName: partyName ?? this.partyName,
       amount: amount ?? this.amount,
       paymentMode: paymentMode ?? this.paymentMode,
       referenceNumber: referenceNumber ?? this.referenceNumber,
-      proofUrl: proofUrl ?? this.proofUrl,
-      status: status ?? this.status,
       notes: notes ?? this.notes,
       paymentDate: paymentDate ?? this.paymentDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      syncStatus: syncStatus ?? this.syncStatus,
-      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
-      cloudId: cloudId ?? this.cloudId,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'payment_number': paymentNumber,
+      'payment_type': paymentType,
+      'party_id': partyId,
+      'party_name': partyName,
+      'amount': amount,
+      'payment_mode': paymentMode,
+      'reference_number': referenceNumber,
+      'notes': notes,
+      'payment_date': paymentDate?.toIso8601String(),
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
+  factory Payment.fromMap(Map<String, dynamic> map) {
+    return Payment(
+      id: map['id'] as int?,
+      paymentNumber: map['payment_number'] as String?,
+      paymentType: map['payment_type'] as String?,
+      partyId: map['party_id'] as int?,
+      partyName: map['party_name'] as String?,
+      amount: map['amount'] as double?,
+      paymentMode: map['payment_mode'] as String?,
+      referenceNumber: map['reference_number'] as String?,
+      notes: map['notes'] as String?,
+      paymentDate: map['payment_date'] != null
+          ? DateTime.parse(map['payment_date'] as String)
+          : null,
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'] as String)
+          : null,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.parse(map['updated_at'] as String)
+          : null,
     );
   }
 
@@ -83,48 +101,36 @@ class Payment {
     return {
       'id': id,
       'paymentNumber': paymentNumber,
-      'clientId': clientId,
-      'clientName': clientName,
+      'paymentType': paymentType,
+      'partyId': partyId,
+      'partyName': partyName,
       'amount': amount,
       'paymentMode': paymentMode,
       'referenceNumber': referenceNumber,
-      'proofUrl': proofUrl,
-      'status': status,
       'notes': notes,
       'paymentDate': paymentDate?.toIso8601String(),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
-      'syncStatus': syncStatus,
-      'lastSyncedAt': lastSyncedAt?.toIso8601String(),
-      'cloudId': cloudId,
     };
   }
 
   factory Payment.fromJson(Map<String, dynamic> json) {
     return Payment(
       paymentNumber: json['paymentNumber'],
-      clientId: json['clientId'],
-      clientName: json['clientName'],
+      paymentType: json['paymentType'],
+      partyId: json['partyId'],
+      partyName: json['partyName'],
       amount: json['amount']?.toDouble(),
       paymentMode: json['paymentMode'],
       referenceNumber: json['referenceNumber'],
-      proofUrl: json['proofUrl'],
-      status: json['status'],
       notes: json['notes'],
       paymentDate: json['paymentDate'] != null
           ? DateTime.parse(json['paymentDate'])
           : null,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : null,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : null,
-      syncStatus: json['syncStatus'],
-      lastSyncedAt: json['lastSyncedAt'] != null
-          ? DateTime.parse(json['lastSyncedAt'])
-          : null,
-      cloudId: json['cloudId'],
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 }

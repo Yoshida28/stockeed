@@ -1,14 +1,10 @@
-import 'package:isar/isar.dart';
 
-part 'order_model.g.dart';
 
-@collection
 class Order {
-  Id id = Isar.autoIncrement;
-
+  int? id;
   String? orderNumber;
   String? status; // pending, accepted, dispatched, delivered
-  String? clientId;
+  int? clientId;
   String? clientName;
   double? totalAmount;
   double? gstAmount;
@@ -16,17 +12,12 @@ class Order {
   String? paymentStatus; // pending, partial, paid
   double? paidAmount;
   String? notes;
-
   DateTime? orderDate;
   DateTime? createdAt;
   DateTime? updatedAt;
 
-  // Sync fields
-  String? syncStatus;
-  DateTime? lastSyncedAt;
-  String? cloudId;
-
   Order({
+    this.id,
     this.orderNumber,
     this.status,
     this.clientId,
@@ -40,15 +31,13 @@ class Order {
     this.orderDate,
     this.createdAt,
     this.updatedAt,
-    this.syncStatus,
-    this.lastSyncedAt,
-    this.cloudId,
   });
 
   Order copyWith({
+    int? id,
     String? orderNumber,
     String? status,
-    String? clientId,
+    int? clientId,
     String? clientName,
     double? totalAmount,
     double? gstAmount,
@@ -59,11 +48,9 @@ class Order {
     DateTime? orderDate,
     DateTime? createdAt,
     DateTime? updatedAt,
-    String? syncStatus,
-    DateTime? lastSyncedAt,
-    String? cloudId,
   }) {
     return Order(
+      id: id ?? this.id,
       orderNumber: orderNumber ?? this.orderNumber,
       status: status ?? this.status,
       clientId: clientId ?? this.clientId,
@@ -77,9 +64,50 @@ class Order {
       orderDate: orderDate ?? this.orderDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      syncStatus: syncStatus ?? this.syncStatus,
-      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
-      cloudId: cloudId ?? this.cloudId,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'order_number': orderNumber,
+      'status': status,
+      'client_id': clientId,
+      'client_name': clientName,
+      'total_amount': totalAmount,
+      'gst_amount': gstAmount,
+      'net_amount': netAmount,
+      'payment_status': paymentStatus,
+      'paid_amount': paidAmount,
+      'notes': notes,
+      'order_date': orderDate?.toIso8601String(),
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
+  factory Order.fromMap(Map<String, dynamic> map) {
+    return Order(
+      id: map['id'] as int?,
+      orderNumber: map['order_number'] as String?,
+      status: map['status'] as String?,
+      clientId: map['client_id'] as int?,
+      clientName: map['client_name'] as String?,
+      totalAmount: map['total_amount'] as double?,
+      gstAmount: map['gst_amount'] as double?,
+      netAmount: map['net_amount'] as double?,
+      paymentStatus: map['payment_status'] as String?,
+      paidAmount: map['paid_amount'] as double?,
+      notes: map['notes'] as String?,
+      orderDate: map['order_date'] != null
+          ? DateTime.parse(map['order_date'] as String)
+          : null,
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'] as String)
+          : null,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.parse(map['updated_at'] as String)
+          : null,
     );
   }
 
@@ -99,9 +127,6 @@ class Order {
       'orderDate': orderDate?.toIso8601String(),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
-      'syncStatus': syncStatus,
-      'lastSyncedAt': lastSyncedAt?.toIso8601String(),
-      'cloudId': cloudId,
     };
   }
 
@@ -117,48 +142,29 @@ class Order {
       paymentStatus: json['paymentStatus'],
       paidAmount: json['paidAmount']?.toDouble(),
       notes: json['notes'],
-      orderDate: json['orderDate'] != null
-          ? DateTime.parse(json['orderDate'])
-          : null,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : null,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : null,
-      syncStatus: json['syncStatus'],
-      lastSyncedAt: json['lastSyncedAt'] != null
-          ? DateTime.parse(json['lastSyncedAt'])
-          : null,
-      cloudId: json['cloudId'],
+      orderDate:
+          json['orderDate'] != null ? DateTime.parse(json['orderDate']) : null,
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 }
 
-@collection
 class OrderItem {
-  Id id = Isar.autoIncrement;
-
+  int? id;
   int? orderId; // Reference to Order
   int? itemId; // Reference to Item
-
   String? itemName;
   double? unitPrice;
   double? gstPercentage;
   int? quantity;
   double? totalAmount;
-  double? gstAmount;
-  double? netAmount;
-
   DateTime? createdAt;
-  DateTime? updatedAt;
-
-  // Sync fields
-  String? syncStatus;
-  DateTime? lastSyncedAt;
-  String? cloudId;
 
   OrderItem({
+    this.id,
     this.orderId,
     this.itemId,
     this.itemName,
@@ -166,16 +172,11 @@ class OrderItem {
     this.gstPercentage,
     this.quantity,
     this.totalAmount,
-    this.gstAmount,
-    this.netAmount,
     this.createdAt,
-    this.updatedAt,
-    this.syncStatus,
-    this.lastSyncedAt,
-    this.cloudId,
   });
 
   OrderItem copyWith({
+    int? id,
     int? orderId,
     int? itemId,
     String? itemName,
@@ -183,15 +184,10 @@ class OrderItem {
     double? gstPercentage,
     int? quantity,
     double? totalAmount,
-    double? gstAmount,
-    double? netAmount,
     DateTime? createdAt,
-    DateTime? updatedAt,
-    String? syncStatus,
-    DateTime? lastSyncedAt,
-    String? cloudId,
   }) {
     return OrderItem(
+      id: id ?? this.id,
       orderId: orderId ?? this.orderId,
       itemId: itemId ?? this.itemId,
       itemName: itemName ?? this.itemName,
@@ -199,13 +195,37 @@ class OrderItem {
       gstPercentage: gstPercentage ?? this.gstPercentage,
       quantity: quantity ?? this.quantity,
       totalAmount: totalAmount ?? this.totalAmount,
-      gstAmount: gstAmount ?? this.gstAmount,
-      netAmount: netAmount ?? this.netAmount,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      syncStatus: syncStatus ?? this.syncStatus,
-      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
-      cloudId: cloudId ?? this.cloudId,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'order_id': orderId,
+      'item_id': itemId,
+      'item_name': itemName,
+      'unit_price': unitPrice,
+      'gst_percentage': gstPercentage,
+      'quantity': quantity,
+      'total_amount': totalAmount,
+      'created_at': createdAt?.toIso8601String(),
+    };
+  }
+
+  factory OrderItem.fromMap(Map<String, dynamic> map) {
+    return OrderItem(
+      id: map['id'] as int?,
+      orderId: map['order_id'] as int?,
+      itemId: map['item_id'] as int?,
+      itemName: map['item_name'] as String?,
+      unitPrice: map['unit_price'] as double?,
+      gstPercentage: map['gst_percentage'] as double?,
+      quantity: map['quantity'] as int?,
+      totalAmount: map['total_amount'] as double?,
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'] as String)
+          : null,
     );
   }
 
@@ -219,13 +239,7 @@ class OrderItem {
       'gstPercentage': gstPercentage,
       'quantity': quantity,
       'totalAmount': totalAmount,
-      'gstAmount': gstAmount,
-      'netAmount': netAmount,
       'createdAt': createdAt?.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
-      'syncStatus': syncStatus,
-      'lastSyncedAt': lastSyncedAt?.toIso8601String(),
-      'cloudId': cloudId,
     };
   }
 
@@ -238,19 +252,8 @@ class OrderItem {
       gstPercentage: json['gstPercentage']?.toDouble(),
       quantity: json['quantity'],
       totalAmount: json['totalAmount']?.toDouble(),
-      gstAmount: json['gstAmount']?.toDouble(),
-      netAmount: json['netAmount']?.toDouble(),
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : null,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : null,
-      syncStatus: json['syncStatus'],
-      lastSyncedAt: json['lastSyncedAt'] != null
-          ? DateTime.parse(json['lastSyncedAt'])
-          : null,
-      cloudId: json['cloudId'],
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
     );
   }
 }

@@ -387,7 +387,6 @@ class _AddItemModalState extends ConsumerState<AddItemModal> {
         sku: _skuController.text.trim(),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
-        syncStatus: AppConstants.syncStatusPending,
       );
 
       // Add item using provider

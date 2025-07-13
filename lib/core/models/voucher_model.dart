@@ -1,97 +1,111 @@
-import 'package:isar/isar.dart';
-
-part 'voucher_model.g.dart';
-
-@collection
 class Voucher {
-  Id id = Isar.autoIncrement;
-
+  int? id;
   String? voucherNumber;
   String? voucherType; // sales, purchase, payment, receipt, journal
   String? partyName;
-  double? amount;
-  double? gstPercentage;
-  double? tdsPercentage;
+  int? partyId;
+  double? totalAmount;
   double? gstAmount;
-  double? tdsAmount;
   double? netAmount;
   String? paymentMode;
   String? referenceNumber;
   String? notes;
-  String? status; // pending, approved, rejected
-
   DateTime? voucherDate;
   DateTime? createdAt;
   DateTime? updatedAt;
 
-  // Sync fields
-  String? syncStatus;
-  DateTime? lastSyncedAt;
-  String? cloudId;
-
   Voucher({
+    this.id,
     this.voucherNumber,
     this.voucherType,
     this.partyName,
-    this.amount,
-    this.gstPercentage,
-    this.tdsPercentage,
+    this.partyId,
+    this.totalAmount,
     this.gstAmount,
-    this.tdsAmount,
     this.netAmount,
     this.paymentMode,
     this.referenceNumber,
     this.notes,
-    this.status,
     this.voucherDate,
     this.createdAt,
     this.updatedAt,
-    this.syncStatus,
-    this.lastSyncedAt,
-    this.cloudId,
   });
 
   Voucher copyWith({
+    int? id,
     String? voucherNumber,
     String? voucherType,
     String? partyName,
-    double? amount,
-    double? gstPercentage,
-    double? tdsPercentage,
+    int? partyId,
+    double? totalAmount,
     double? gstAmount,
-    double? tdsAmount,
     double? netAmount,
     String? paymentMode,
     String? referenceNumber,
     String? notes,
-    String? status,
     DateTime? voucherDate,
     DateTime? createdAt,
     DateTime? updatedAt,
-    String? syncStatus,
-    DateTime? lastSyncedAt,
-    String? cloudId,
   }) {
     return Voucher(
+      id: id ?? this.id,
       voucherNumber: voucherNumber ?? this.voucherNumber,
       voucherType: voucherType ?? this.voucherType,
       partyName: partyName ?? this.partyName,
-      amount: amount ?? this.amount,
-      gstPercentage: gstPercentage ?? this.gstPercentage,
-      tdsPercentage: tdsPercentage ?? this.tdsPercentage,
+      partyId: partyId ?? this.partyId,
+      totalAmount: totalAmount ?? this.totalAmount,
       gstAmount: gstAmount ?? this.gstAmount,
-      tdsAmount: tdsAmount ?? this.tdsAmount,
       netAmount: netAmount ?? this.netAmount,
       paymentMode: paymentMode ?? this.paymentMode,
       referenceNumber: referenceNumber ?? this.referenceNumber,
       notes: notes ?? this.notes,
-      status: status ?? this.status,
       voucherDate: voucherDate ?? this.voucherDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      syncStatus: syncStatus ?? this.syncStatus,
-      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
-      cloudId: cloudId ?? this.cloudId,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'voucher_number': voucherNumber,
+      'voucher_type': voucherType,
+      'party_name': partyName,
+      'party_id': partyId,
+      'total_amount': totalAmount,
+      'gst_amount': gstAmount,
+      'net_amount': netAmount,
+      'payment_mode': paymentMode,
+      'reference_number': referenceNumber,
+      'notes': notes,
+      'voucher_date': voucherDate?.toIso8601String(),
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
+  factory Voucher.fromMap(Map<String, dynamic> map) {
+    return Voucher(
+      id: map['id'] as int?,
+      voucherNumber: map['voucher_number'] as String?,
+      voucherType: map['voucher_type'] as String?,
+      partyName: map['party_name'] as String?,
+      partyId: map['party_id'] as int?,
+      totalAmount: map['total_amount'] as double?,
+      gstAmount: map['gst_amount'] as double?,
+      netAmount: map['net_amount'] as double?,
+      paymentMode: map['payment_mode'] as String?,
+      referenceNumber: map['reference_number'] as String?,
+      notes: map['notes'] as String?,
+      voucherDate: map['voucher_date'] != null
+          ? DateTime.parse(map['voucher_date'] as String)
+          : null,
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'] as String)
+          : null,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.parse(map['updated_at'] as String)
+          : null,
     );
   }
 
@@ -101,22 +115,16 @@ class Voucher {
       'voucherNumber': voucherNumber,
       'voucherType': voucherType,
       'partyName': partyName,
-      'amount': amount,
-      'gstPercentage': gstPercentage,
-      'tdsPercentage': tdsPercentage,
+      'partyId': partyId,
+      'totalAmount': totalAmount,
       'gstAmount': gstAmount,
-      'tdsAmount': tdsAmount,
       'netAmount': netAmount,
       'paymentMode': paymentMode,
       'referenceNumber': referenceNumber,
       'notes': notes,
-      'status': status,
       'voucherDate': voucherDate?.toIso8601String(),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
-      'syncStatus': syncStatus,
-      'lastSyncedAt': lastSyncedAt?.toIso8601String(),
-      'cloudId': cloudId,
     };
   }
 
@@ -125,30 +133,20 @@ class Voucher {
       voucherNumber: json['voucherNumber'],
       voucherType: json['voucherType'],
       partyName: json['partyName'],
-      amount: json['amount']?.toDouble(),
-      gstPercentage: json['gstPercentage']?.toDouble(),
-      tdsPercentage: json['tdsPercentage']?.toDouble(),
+      partyId: json['partyId'],
+      totalAmount: json['totalAmount']?.toDouble(),
       gstAmount: json['gstAmount']?.toDouble(),
-      tdsAmount: json['tdsAmount']?.toDouble(),
       netAmount: json['netAmount']?.toDouble(),
       paymentMode: json['paymentMode'],
       referenceNumber: json['referenceNumber'],
       notes: json['notes'],
-      status: json['status'],
       voucherDate: json['voucherDate'] != null
           ? DateTime.parse(json['voucherDate'])
           : null,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : null,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : null,
-      syncStatus: json['syncStatus'],
-      lastSyncedAt: json['lastSyncedAt'] != null
-          ? DateTime.parse(json['lastSyncedAt'])
-          : null,
-      cloudId: json['cloudId'],
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 }

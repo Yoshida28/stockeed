@@ -455,7 +455,6 @@ class _ItemDetailModalState extends ConsumerState<ItemDetailModal> {
             widget.item.lowStockThreshold,
         description: _descriptionController.text.trim(),
         updatedAt: DateTime.now(),
-        syncStatus: 'pending_sync',
       );
 
       // Update item using provider
@@ -496,7 +495,9 @@ class _ItemDetailModalState extends ConsumerState<ItemDetailModal> {
     if (confirmed == true) {
       try {
         // Delete item using provider
-        await ref.read(stockProviderNotifier.notifier).deleteItem(widget.item.id);
+        if (widget.item.id != null) {
+          await ref.read(stockProviderNotifier.notifier).deleteItem(widget.item.id!);
+        }
         Navigator.pop(context);
       } catch (e) {
         _showErrorDialog(e.toString());
