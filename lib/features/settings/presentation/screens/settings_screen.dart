@@ -15,146 +15,252 @@ class SettingsScreen extends ConsumerWidget {
     final authState = ref.watch(authProviderNotifier);
     final user = authState.user;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Text(
-            'Settings',
-            style: AppTheme.heading1.copyWith(
-              color: AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Manage your account and preferences',
-            style: AppTheme.body2.copyWith(
-              color: AppTheme.textSecondaryColor,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // User Profile Section
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: AppTheme.glassmorphicDecoration,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'User Profile',
-                  style: AppTheme.heading3.copyWith(
-                    color: AppTheme.primaryColor,
+    return Container(
+      color: Colors.white,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.only(bottom: 32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    width: 1,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                      child: Icon(
-                        CupertinoIcons.person_fill,
-                        color: AppTheme.primaryColor,
-                        size: 30,
-                      ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Settings',
+                    style: AppTheme.heading1.copyWith(
+                      color: AppTheme.primaryColor,
+                      fontSize: 40,
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user?.name ?? 'User',
-                            style: AppTheme.heading3,
-                          ),
-                          Text(
-                            user?.email ?? 'user@example.com',
-                            style: AppTheme.body2.copyWith(
-                              color: AppTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Manage your account and preferences',
+                    style: AppTheme.body2.copyWith(
+                      color: AppTheme.textSecondaryColor,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // User Profile Section
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryColor.withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        CupertinoIcons.person_circle_fill,
+                        color: AppTheme.primaryColor,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'User Profile',
+                        style: AppTheme.heading3.copyWith(
+                          color: AppTheme.primaryColor,
+                          fontSize: 24,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Icon(
+                          CupertinoIcons.person_fill,
+                          color: AppTheme.primaryColor,
+                          size: 40,
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user?.name ?? 'User',
+                              style: AppTheme.heading3.copyWith(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          Text(
-                            user?.role ?? 'User',
-                            style: AppTheme.caption.copyWith(
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.w600,
+                            const SizedBox(height: 8),
+                            Text(
+                              user?.email ?? 'user@example.com',
+                              style: AppTheme.body2.copyWith(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: AppTheme.primaryColor,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                user?.role ?? 'User',
+                                style: AppTheme.caption.copyWith(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Settings Options
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryColor.withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  _buildSettingsItem(
+                    icon: CupertinoIcons.person_circle,
+                    title: 'Account Settings',
+                    subtitle: 'Manage your account information and profile',
+                    onTap: () => _showAccountSettings(context),
+                  ),
+                  _buildSettingsItem(
+                    icon: CupertinoIcons.bell,
+                    title: 'Notifications',
+                    subtitle: 'Configure notification preferences and alerts',
+                    onTap: () => _showNotificationSettings(context),
+                  ),
+                  _buildSettingsItem(
+                    icon: CupertinoIcons.shield,
+                    title: 'Privacy & Security',
+                    subtitle: 'Manage privacy and security settings',
+                    onTap: () => _showPrivacySettings(context),
+                  ),
+                  _buildSettingsItem(
+                    icon: CupertinoIcons.gear,
+                    title: 'App Settings',
+                    subtitle: 'Configure app preferences and display options',
+                    onTap: () => _showAppSettings(context),
+                  ),
+                  _buildSettingsItem(
+                    icon: CupertinoIcons.question_circle,
+                    title: 'Help & Support',
+                    subtitle: 'Get help and contact support team',
+                    onTap: () => _showHelpSupport(context),
+                  ),
+                  _buildSettingsItem(
+                    icon: CupertinoIcons.info_circle,
+                    title: 'About',
+                    subtitle: 'App version and information',
+                    onTap: () => _showAbout(context),
+                    isLast: true,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Sign Out Button
+            Container(
+              width: double.infinity,
+              child: CupertinoButton(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                color: AppTheme.errorColor,
+                borderRadius: BorderRadius.circular(16),
+                onPressed: () => _showSignOutDialog(context),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      CupertinoIcons.square_arrow_right,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Sign Out',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Settings Options
-          Container(
-            decoration: AppTheme.glassmorphicDecoration,
-            child: Column(
-              children: [
-                _buildSettingsItem(
-                  icon: CupertinoIcons.person_circle,
-                  title: 'Account Settings',
-                  subtitle: 'Manage your account information',
-                  onTap: () => _showAccountSettings(context),
-                ),
-                _buildSettingsItem(
-                  icon: CupertinoIcons.bell,
-                  title: 'Notifications',
-                  subtitle: 'Configure notification preferences',
-                  onTap: () => _showNotificationSettings(context),
-                ),
-                _buildSettingsItem(
-                  icon: CupertinoIcons.shield,
-                  title: 'Privacy & Security',
-                  subtitle: 'Manage privacy and security settings',
-                  onTap: () => _showPrivacySettings(context),
-                ),
-                _buildSettingsItem(
-                  icon: CupertinoIcons.gear,
-                  title: 'App Settings',
-                  subtitle: 'Configure app preferences',
-                  onTap: () => _showAppSettings(context),
-                ),
-                _buildSettingsItem(
-                  icon: CupertinoIcons.question_circle,
-                  title: 'Help & Support',
-                  subtitle: 'Get help and contact support',
-                  onTap: () => _showHelpSupport(context),
-                ),
-                _buildSettingsItem(
-                  icon: CupertinoIcons.info_circle,
-                  title: 'About',
-                  subtitle: 'App version and information',
-                  onTap: () => _showAbout(context),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Sign Out Button
-          Container(
-            width: double.infinity,
-            child: CupertinoButton(
-              color: AppTheme.errorColor,
-              borderRadius: BorderRadius.circular(12),
-              onPressed: () => _showSignOutDialog(context),
-              child: const Text(
-                'Sign Out',
-                style: TextStyle(color: Colors.white),
               ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 32),
+
+            // App Version Info
+            Center(
+              child: Text(
+                'Stocked v1.0.0',
+                style: AppTheme.caption.copyWith(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -164,43 +270,73 @@ class SettingsScreen extends ConsumerWidget {
     required String title,
     String? subtitle,
     VoidCallback? onTap,
+    bool isLast = false,
   }) {
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      onPressed: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0),
+    return Container(
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : Border(
+                bottom: BorderSide(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+      ),
+      child: CupertinoButton(
+        padding: const EdgeInsets.all(24),
+        onPressed: onTap,
         child: Row(
           children: [
-            Icon(
-              icon,
-              color: AppTheme.primaryColor,
-              size: 24,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: AppTheme.primaryColor,
+                size: 24,
+              ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: AppTheme.body1,
+                    style: AppTheme.body1.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: AppTheme.textPrimaryColor,
+                    ),
                   ),
-                  if (subtitle != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(
-                        subtitle,
-                        style: AppTheme.caption,
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: AppTheme.caption.copyWith(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 14,
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
-            const Icon(
-              CupertinoIcons.right_chevron,
-              color: AppTheme.textSecondaryColor,
-              size: 20,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                CupertinoIcons.right_chevron,
+                color: AppTheme.textSecondaryColor,
+                size: 16,
+              ),
             ),
           ],
         ),

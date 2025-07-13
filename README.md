@@ -214,4 +214,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 **Stocked** - Transform your business with professional-grade local management software! 🚀#   s t o c k e e d  
+ #   s t o c k e e d  
  
