@@ -7,9 +7,11 @@ import 'package:stocked/core/providers/navigation_provider.dart';
 import 'package:stocked/core/models/item_model.dart';
 import 'package:stocked/core/services/database_service.dart';
 import 'package:stocked/core/services/config_service.dart';
+import 'package:stocked/core/services/category_service.dart';
 import 'package:stocked/features/stock/presentation/providers/stock_provider.dart';
 import 'package:stocked/features/stock/presentation/widgets/add_item_modal.dart';
 import 'package:stocked/features/stock/presentation/widgets/item_detail_modal.dart';
+import 'package:stocked/features/stock/presentation/widgets/category_management_modal.dart';
 
 class StockManagementScreen extends ConsumerStatefulWidget {
   const StockManagementScreen({super.key});
@@ -30,28 +32,26 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
     _loadCategories();
   }
 
-  void _loadCategories() {
+  Future<void> _loadCategories() async {
     try {
-      final categories = ConfigService.get<List<String>>('item_categories');
-      setState(() {
-        _categories = ['All', ...categories];
-      });
+      final categories = await CategoryService.getCategories();
+      if (categories.isEmpty) {
+        // Initialize default categories if none exist
+        await CategoryService.initializeDefaultCategories();
+        final defaultCategories = await CategoryService.getCategories();
+        setState(() {
+          _categories = ['All', ...defaultCategories];
+        });
+      } else {
+        setState(() {
+          _categories = ['All', ...categories];
+        });
+      }
     } catch (e) {
       print('Error loading categories: $e');
       // Fallback to default categories
       setState(() {
-        _categories = [
-          'All',
-          'Electronics',
-          'Clothing',
-          'Food & Beverages',
-          'Home & Garden',
-          'Sports',
-          'Books',
-          'Automotive',
-          'Health & Beauty',
-          'Toys & Games',
-        ];
+        _categories = ['All', ...CategoryService.getDefaultCategories()];
       });
     }
   }
@@ -105,8 +105,8 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
                     ),
                   ),
                   CupertinoButton(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 14),
                     color: AppTheme.primaryColor,
                     borderRadius: BorderRadius.circular(28),
                     onPressed: () => _showAddItemModal(context),
@@ -256,7 +256,8 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
                   Expanded(
                     child: _buildSummaryCard(
                       title: 'Categories',
-                      value: '${stockState.items.map((item) => item.category).where((cat) => cat != null).toSet().length}',
+                      value:
+                          '${stockState.items.map((item) => item.category).where((cat) => cat != null).toSet().length}',
                       icon: CupertinoIcons.folder,
                       color: AppTheme.successColor,
                     ),
@@ -400,7 +401,8 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
               CupertinoButton(
                 color: AppTheme.primaryColor,
                 borderRadius: BorderRadius.circular(28),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 onPressed: () => _showAddItemModal(context),
                 child: const Text(
                   'Add First Item',
@@ -417,7 +419,7 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
       );
     }
 
-        return Column(
+    return Column(
       children: [
         ...filteredItems.map((item) {
           final isLowStock =
@@ -445,18 +447,51 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Row(
                     children: [
-                      // Item Icon
+                      // Item Image or Icon
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        width: 80,
+                        height: 80,
                         decoration: BoxDecoration(
                           color: AppTheme.primaryColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Icon(
-                          CupertinoIcons.cube_box,
-                          color: AppTheme.primaryColor,
-                          size: 24,
-                        ),
+                        child: item.imageUrl != null &&
+                                item.imageUrl!.isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.network(
+                                  item.imageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Icon(
+                                        CupertinoIcons.cube_box,
+                                        color: AppTheme.primaryColor,
+                                        size: 24,
+                                      ),
+                                    );
+                                  },
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      padding: const EdgeInsets.all(16),
+                                      child: CupertinoActivityIndicator(
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              )
+                            : Container(
+                                padding: const EdgeInsets.all(16),
+                                child: Icon(
+                                  CupertinoIcons.cube_box,
+                                  color: AppTheme.primaryColor,
+                                  size: 24,
+                                ),
+                              ),
                       ),
                       const SizedBox(width: 20),
 
@@ -578,120 +613,13 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
   void _showManageCategoriesModal() {
     showCupertinoModalPopup(
       context: context,
-      builder: (context) => _ManageCategoriesModal(
+      builder: (context) => CategoryManagementModal(
         categories: _categories.where((c) => c != 'All').toList(),
         onCategoriesChanged: (newCategories) async {
-          await ConfigService.set('item_categories', newCategories);
-          _loadCategories();
+          setState(() {
+            _categories = ['All', ...newCategories];
+          });
         },
-      ),
-    );
-  }
-}
-
-class _ManageCategoriesModal extends StatefulWidget {
-  final List<String> categories;
-  final ValueChanged<List<String>> onCategoriesChanged;
-  const _ManageCategoriesModal({
-    required this.categories,
-    required this.onCategoriesChanged,
-  });
-  @override
-  State<_ManageCategoriesModal> createState() => _ManageCategoriesModalState();
-}
-
-class _ManageCategoriesModalState extends State<_ManageCategoriesModal> {
-  late List<String> _categories;
-  final TextEditingController _controller = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _categories = List.from(widget.categories);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('Manage Categories'),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () => Navigator.pop(context),
-          child: const Icon(CupertinoIcons.xmark),
-        ),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: CupertinoTextField(
-                      controller: _controller,
-                      placeholder: 'New category',
-                      style: AppTheme.body1,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  CupertinoButton.filled(
-                    onPressed: () {
-                      final newCat = _controller.text.trim();
-                      if (newCat.isNotEmpty && !_categories.contains(newCat)) {
-                        setState(() {
-                          _categories.add(newCat);
-                          _controller.clear();
-                        });
-                        widget.onCategoriesChanged(_categories);
-                      }
-                    },
-                    child: const Icon(CupertinoIcons.add),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _categories.length,
-                  itemBuilder: (context, index) {
-                    final cat = _categories[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: AppTheme.glassmorphicDecoration,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              child: Text(cat, style: AppTheme.body1),
-                            ),
-                          ),
-                          CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            onPressed: () {
-                              setState(() {
-                                _categories.removeAt(index);
-                              });
-                              widget.onCategoriesChanged(_categories);
-                            },
-                            child: const Icon(CupertinoIcons.delete,
-                                color: AppTheme.errorColor),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

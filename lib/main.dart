@@ -6,6 +6,8 @@ import 'package:stocked/features/auth/presentation/screens/auth_screen.dart';
 import 'package:stocked/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:stocked/core/services/database_service.dart';
 import 'package:stocked/core/services/config_service.dart';
+import 'package:stocked/core/services/category_service.dart';
+import 'package:stocked/core/services/expense_category_service.dart';
 import 'package:stocked/features/auth/presentation/providers/auth_provider.dart';
 import 'home_shell.dart';
 
@@ -17,6 +19,10 @@ void main() async {
 
   // Initialize config service
   await ConfigService.initialize();
+
+  // Initialize default categories
+  await CategoryService.initializeDefaultCategories();
+  await ExpenseCategoryService.resetToDefaults();
 
   runApp(const ProviderScope(child: StockedApp()));
 }

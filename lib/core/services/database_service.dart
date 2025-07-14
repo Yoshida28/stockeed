@@ -13,7 +13,7 @@ import 'package:stocked/core/models/expense_model.dart';
 class DatabaseService {
   static Database? _database;
   static const String _databaseName = 'stocked.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2; // Updated version
 
   static Database get database {
     if (_database == null) {
@@ -77,17 +77,21 @@ class DatabaseService {
       CREATE TABLE items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        category TEXT,
-        unit_price REAL DEFAULT 0.0,
-        gst_percentage REAL DEFAULT 18.0,
-        opening_stock INTEGER DEFAULT 0,
-        current_stock INTEGER DEFAULT 0,
-        low_stock_threshold INTEGER DEFAULT 10,
+        category TEXT NOT NULL,
+        unit_price REAL NOT NULL DEFAULT 0.0,
+        gst_percentage REAL NOT NULL DEFAULT 18.0,
+        opening_stock INTEGER NOT NULL DEFAULT 0,
+        current_stock INTEGER NOT NULL DEFAULT 0,
+        low_stock_threshold INTEGER NOT NULL DEFAULT 10,
+        sku TEXT UNIQUE,
+        barcode TEXT UNIQUE,
         description TEXT,
-        barcode TEXT,
-        sku TEXT,
+        image_url TEXT,
+        user_id INTEGER NOT NULL,
+        is_active INTEGER DEFAULT 1,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     ''');
 
@@ -267,9 +271,37 @@ class DatabaseService {
 
   static Future<void> _onUpgrade(
       Database db, int oldVersion, int newVersion) async {
-    // Handle database upgrades here
-    if (oldVersion < newVersion) {
-      // Add migration logic here
+    if (oldVersion < 2) {
+      // Add new columns to items table
+      try {
+        await db.execute('ALTER TABLE items ADD COLUMN image_url TEXT');
+      } catch (e) {
+        print('Column image_url might already exist: $e');
+      }
+
+      try {
+        await db.execute('ALTER TABLE items ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        print('Column user_id might already exist: $e');
+      }
+
+      try {
+        await db.execute(
+            'ALTER TABLE items ADD COLUMN is_active INTEGER DEFAULT 1');
+      } catch (e) {
+        print('Column is_active might already exist: $e');
+      }
+
+      // Update existing items to have a default user_id (admin user)
+      try {
+        final adminUser = await getUserByEmail('admin@stocked.com');
+        if (adminUser != null) {
+          await db.execute('UPDATE items SET user_id = ? WHERE user_id IS NULL',
+              [adminUser.id]);
+        }
+      } catch (e) {
+        print('Error updating existing items: $e');
+      }
     }
   }
 
@@ -506,7 +538,24 @@ class DatabaseService {
 
   // Item operations
   static Future<List<Item>> getAllItems() async {
-    final result = await database.query('items');
+    // Get current user ID from settings
+    final currentUserEmail = await getSetting('current_user_email');
+    final currentUser = currentUserEmail != null
+        ? await getUserByEmail(currentUserEmail)
+        : null;
+
+    if (currentUser == null) {
+      // If no user is logged in, return all items (for backward compatibility)
+      // This allows the app to work even without a logged-in user
+      final result = await database.query('items');
+      return result.map((map) => Item.fromMap(map)).toList();
+    }
+
+    final result = await database.query(
+      'items',
+      where: 'user_id = ? AND is_active = 1',
+      whereArgs: [currentUser.id],
+    );
     return result.map((map) => Item.fromMap(map)).toList();
   }
 
@@ -520,12 +569,37 @@ class DatabaseService {
   }
 
   static Future<void> saveItem(Item item) async {
+    // Get current user ID from settings
+    final currentUserEmail = await getSetting('current_user_email');
+    final currentUser = currentUserEmail != null
+        ? await getUserByEmail(currentUserEmail)
+        : null;
+
+    // Prepare item data
+    final itemData = item.toMap();
+    itemData['created_at'] = DateTime.now().toIso8601String();
+    itemData['updated_at'] = DateTime.now().toIso8601String();
+
+    // If there's a current user, add user_id
+    if (currentUser != null) {
+      itemData['user_id'] = currentUser.id;
+    } else {
+      // For backward compatibility, try to get admin user or set to null
+      try {
+        final adminUser = await getUserByEmail('admin@stocked.com');
+        itemData['user_id'] = adminUser?.id;
+      } catch (e) {
+        print('Warning: No user found for item creation');
+        itemData['user_id'] = null;
+      }
+    }
+
     if (item.id == null) {
-      await database.insert('items', item.toMap());
+      await database.insert('items', itemData);
     } else {
       await database.update(
         'items',
-        item.toMap(),
+        itemData,
         where: 'id = ?',
         whereArgs: [item.id],
       );

@@ -10,6 +10,7 @@ class Item {
   String? description;
   String? barcode;
   String? sku;
+  String? imageUrl;
   DateTime? createdAt;
   DateTime? updatedAt;
 
@@ -25,6 +26,7 @@ class Item {
     this.description,
     this.barcode,
     this.sku,
+    this.imageUrl,
     this.createdAt,
     this.updatedAt,
   });
@@ -41,6 +43,7 @@ class Item {
     String? description,
     String? barcode,
     String? sku,
+    String? imageUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -56,6 +59,7 @@ class Item {
       description: description ?? this.description,
       barcode: barcode ?? this.barcode,
       sku: sku ?? this.sku,
+      imageUrl: imageUrl ?? this.imageUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -74,6 +78,7 @@ class Item {
       'description': description,
       'barcode': barcode,
       'sku': sku,
+      'image_url': imageUrl,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -92,6 +97,7 @@ class Item {
       description: map['description'] as String?,
       barcode: map['barcode'] as String?,
       sku: map['sku'] as String?,
+      imageUrl: map['image_url'] as String?,
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'] as String)
           : null,
@@ -114,6 +120,7 @@ class Item {
       'description': description,
       'barcode': barcode,
       'sku': sku,
+      'imageUrl': imageUrl,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -131,6 +138,7 @@ class Item {
       description: json['description'],
       barcode: json['barcode'],
       sku: json['sku'],
+      imageUrl: json['imageUrl'],
       createdAt:
           json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
       updatedAt:

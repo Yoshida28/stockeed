@@ -5,7 +5,10 @@ import 'package:stocked/core/theme/app_theme.dart';
 import 'package:stocked/core/models/expense_model.dart';
 import 'package:stocked/features/expenses/presentation/providers/expenses_provider.dart';
 import 'package:stocked/core/services/config_service.dart';
+import 'package:stocked/core/services/expense_category_service.dart';
+import 'package:stocked/features/expenses/presentation/widgets/expense_category_management_modal.dart';
 import 'package:intl/intl.dart';
+import 'package:stocked/features/expenses/presentation/widgets/stock_refresh_loader.dart';
 
 class ExpensesScreen extends ConsumerStatefulWidget {
   const ExpensesScreen({super.key});
@@ -26,9 +29,9 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     _loadExpenseCategories();
   }
 
-  void _loadExpenseCategories() {
+  Future<void> _loadExpenseCategories() async {
     try {
-      final categories = ConfigService.get<List<String>>('expense_categories');
+      final categories = await ExpenseCategoryService.getCategories();
       final paymentModes = ConfigService.get<List<String>>('payment_modes');
       setState(() {
         _expenseCategories = ['All', ...categories];
@@ -37,18 +40,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     } catch (e) {
       print('Error loading expense categories: $e');
       setState(() {
-        _expenseCategories = [
-          'All',
-          'Office Supplies',
-          'Travel',
-          'Marketing',
-          'Utilities',
-          'Rent',
-          'Salaries',
-          'Equipment',
-          'Maintenance',
-          'Other',
-        ];
+        _expenseCategories = ['All'];
         _paymentModes = [
           'Cash',
           'Bank Transfer',
@@ -651,6 +643,22 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     );
   }
 
+  void _showCategoryManagementModal() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => ExpenseCategoryManagementModal(
+        onCategoriesChanged: () {
+          _loadExpenseCategories();
+        },
+      ),
+    );
+  }
+
+  Future<void> _refreshExpenses() async {
+    await ref.read(expensesProviderNotifier.notifier).loadExpenses();
+    await _loadExpenseCategories();
+  }
+
   @override
   Widget build(BuildContext context) {
     final expensesState = ref.watch(expensesProviderNotifier);
@@ -669,235 +677,294 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
     return Container(
       color: Colors.white,
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Header with Add Button
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics()),
+        slivers: [
+          CupertinoSliverRefreshControl(
+            onRefresh: _refreshExpenses,
+            builder: (context, refreshState, pulledExtent,
+                refreshTriggerPullDistance, refreshIndicatorExtent) {
+              if (refreshState == RefreshIndicatorMode.refresh ||
+                  refreshState == RefreshIndicatorMode.armed) {
+                return const Center(child: StockRefreshLoader());
+              } else if (refreshState == RefreshIndicatorMode.done) {
+                return const SizedBox.shrink();
+              } else {
+                return const SizedBox(height: 60);
+              }
+            },
+          ),
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                // Header with Add Button
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Expenses',
-                          style: AppTheme.heading2.copyWith(
-                            color: AppTheme.primaryColor,
-                            fontSize: 36,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Track and manage your business expenses',
-                          style: AppTheme.body2.copyWith(
-                            color: AppTheme.textSecondaryColor,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  CupertinoButton(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                    color: AppTheme.primaryColor,
-                    borderRadius: BorderRadius.circular(28),
-                    onPressed: _showAddExpenseModal,
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(CupertinoIcons.add, color: Colors.white, size: 20),
-                        SizedBox(width: 10),
-                        Text('Add Expense',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Search and Filter Section
-            Container(
-              margin: const EdgeInsets.all(32),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withOpacity(0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // Search Bar
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceColor,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                          color: AppTheme.primaryColor.withOpacity(0.1)),
-                    ),
-                    child: CupertinoSearchTextField(
-                      placeholder: 'Search expenses by description or vendor...',
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                        });
-                      },
-                      style: AppTheme.body1.copyWith(fontSize: 16),
-                      prefixIcon: Icon(CupertinoIcons.search,
-                          color: AppTheme.primaryColor, size: 20),
-                      decoration: const BoxDecoration(),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Category Filter
-                  Row(
+                  child: Row(
                     children: [
                       Expanded(
-                        child: Container(
-                          height: 50,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _expenseCategories.length,
-                            itemBuilder: (context, index) {
-                              final category = _expenseCategories[index];
-                              final isSelected = _selectedCategory == category;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 16),
-                                child: CupertinoButton(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 24, vertical: 10),
-                                  color: isSelected
-                                      ? AppTheme.primaryColor
-                                      : AppTheme.surfaceColor,
-                                  borderRadius: BorderRadius.circular(25),
-                                  onPressed: () {
-                                    setState(() {
-                                      _selectedCategory = category;
-                                    });
-                                  },
-                                  child: Text(
-                                    category,
-                                    style: AppTheme.body2.copyWith(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : AppTheme.textPrimaryColor,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w600
-                                          : FontWeight.normal,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Expenses',
+                              style: AppTheme.heading2.copyWith(
+                                color: AppTheme.primaryColor,
+                                fontSize: 36,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Track and manage your business expenses',
+                              style: AppTheme.body2.copyWith(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 14),
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(28),
+                        onPressed: _showAddExpenseModal,
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(CupertinoIcons.add,
+                                color: Colors.white, size: 20),
+                            SizedBox(width: 10),
+                            Text('Add Expense',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16)),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
+                ),
 
-            // Expenses Summary Cards
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildSummaryCard(
-                      title: 'Total Expenses',
-                      value: '${filteredExpenses.length}',
-                      subtitle: 'transactions',
-                      icon: CupertinoIcons.money_dollar_circle_fill,
-                      color: AppTheme.primaryColor,
-                      gradient: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                    ),
+                // Search and Filter Section
+                Container(
+                  margin: const EdgeInsets.all(32),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withOpacity(0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: _buildSummaryCard(
-                      title: 'Total Amount',
-                      value:
-                          '₹${_formatAmount(_getTotalAmount(filteredExpenses))}',
-                      subtitle: 'spent',
-                      icon: CupertinoIcons.chart_bar_fill,
-                      color: AppTheme.errorColor,
-                      gradient: [AppTheme.errorColor, AppTheme.warningColor],
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: _buildSummaryCard(
-                      title: 'Average Expense',
-                      value: filteredExpenses.isNotEmpty
-                          ? '₹${_formatAmount(_getTotalAmount(filteredExpenses) / filteredExpenses.length)}'
-                          : '₹0.00',
-                      subtitle: 'per transaction',
-                      icon: CupertinoIcons.chart_pie_fill,
-                      color: AppTheme.successColor,
-                      gradient: [AppTheme.successColor, AppTheme.accentColor],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                  child: Column(
+                    children: [
+                      // Search Bar
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceColor,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.1)),
+                        ),
+                        child: CupertinoSearchTextField(
+                          placeholder:
+                              'Search expenses by description or vendor...',
+                          onChanged: (value) {
+                            setState(() {
+                              _searchQuery = value;
+                            });
+                          },
+                          style: AppTheme.body1.copyWith(fontSize: 16),
+                          prefixIcon: Icon(CupertinoIcons.search,
+                              color: AppTheme.primaryColor, size: 20),
+                          decoration: const BoxDecoration(),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
-            const SizedBox(height: 32),
-
-            // Expenses List
-            expensesState.isLoading
-                ? Container(
-                    height: 400,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      // Category Filter
+                      Row(
                         children: [
-                          CupertinoActivityIndicator(radius: 24),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Loading expenses...',
-                            style: AppTheme.body2.copyWith(
-                              color: AppTheme.textSecondaryColor,
-                              fontSize: 16,
+                          Expanded(
+                            child: Container(
+                              height: 50,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _expenseCategories.length,
+                                itemBuilder: (context, index) {
+                                  final category = _expenseCategories[index];
+                                  final isSelected =
+                                      _selectedCategory == category;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 16),
+                                    child: CupertinoButton(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 24, vertical: 10),
+                                      color: isSelected
+                                          ? AppTheme.primaryColor
+                                          : AppTheme.surfaceColor,
+                                      borderRadius: BorderRadius.circular(25),
+                                      onPressed: () {
+                                        setState(() {
+                                          _selectedCategory = category;
+                                        });
+                                      },
+                                      child: Text(
+                                        category,
+                                        style: AppTheme.body2.copyWith(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : AppTheme.textPrimaryColor,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          CupertinoButton(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
+                            color: AppTheme.surfaceColor,
+                            borderRadius: BorderRadius.circular(25),
+                            onPressed: _showCategoryManagementModal,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.settings,
+                                  size: 16,
+                                  color: AppTheme.primaryColor,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Manage',
+                                  style: AppTheme.body2.copyWith(
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: _buildExpensesList(filteredExpenses),
+                    ],
                   ),
+                ),
 
-            // Bottom padding for better scrolling experience
-            const SizedBox(height: 32),
-          ],
-        ),
+                // Expenses Summary Cards
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildSummaryCard(
+                          title: 'Total Expenses',
+                          value: '${filteredExpenses.length}',
+                          subtitle: 'transactions',
+                          icon: CupertinoIcons.money_dollar_circle_fill,
+                          color: AppTheme.primaryColor,
+                          gradient: [
+                            AppTheme.primaryColor,
+                            AppTheme.secondaryColor
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: _buildSummaryCard(
+                          title: 'Total Amount',
+                          value:
+                              '₹${_formatAmount(_getTotalAmount(filteredExpenses))}',
+                          subtitle: 'spent',
+                          icon: CupertinoIcons.chart_bar_fill,
+                          color: AppTheme.errorColor,
+                          gradient: [
+                            AppTheme.errorColor,
+                            AppTheme.warningColor
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: _buildSummaryCard(
+                          title: 'Average Expense',
+                          value: filteredExpenses.isNotEmpty
+                              ? '₹${_formatAmount(_getTotalAmount(filteredExpenses) / filteredExpenses.length)}'
+                              : '₹0.00',
+                          subtitle: 'per transaction',
+                          icon: CupertinoIcons.chart_pie_fill,
+                          color: AppTheme.successColor,
+                          gradient: [
+                            AppTheme.successColor,
+                            AppTheme.accentColor
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // Expenses List
+                expensesState.isLoading
+                    ? Container(
+                        height: 400,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CupertinoActivityIndicator(radius: 24),
+                              const SizedBox(height: 20),
+                              Text(
+                                'Loading expenses...',
+                                style: AppTheme.body2.copyWith(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: _buildExpensesList(filteredExpenses),
+                      ),
+
+                // Bottom padding for better scrolling experience
+                const SizedBox(height: 32),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1035,207 +1102,207 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     return Column(
       children: [
         ...expenses.map((expense) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryColor.withOpacity(0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        expense.expenseNumber ?? 'N/A',
-                        style: AppTheme.body1.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimaryColor,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.errorColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(
-                          color: AppTheme.errorColor,
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        expense.category?.toUpperCase() ?? 'N/A',
-                        style: AppTheme.caption.copyWith(
-                          color: AppTheme.errorColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
+          return Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          expense.expenseNumber ?? 'N/A',
+                          style: AppTheme.body1.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimaryColor,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.errorColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(
+                            color: AppTheme.errorColor,
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          expense.category?.toUpperCase() ?? 'N/A',
+                          style: AppTheme.caption.copyWith(
+                            color: AppTheme.errorColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              expense.description ?? 'Unknown',
+                              style: AppTheme.body1.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimaryColor,
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            if (expense.vendorName != null)
+                              Row(
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.person_circle,
+                                    size: 14,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Vendor: ${expense.vendorName}',
+                                    style: AppTheme.caption.copyWith(
+                                      color: AppTheme.textSecondaryColor,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            if (expense.paymentMode != null) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.creditcard,
+                                    size: 14,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Payment: ${expense.paymentMode}',
+                                    style: AppTheme.caption.copyWith(
+                                      color: AppTheme.textSecondaryColor,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            expense.description ?? 'Unknown',
-                            style: AppTheme.body1.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimaryColor,
-                              fontSize: 18,
+                            '₹${_formatAmount(expense.amount ?? 0)}',
+                            style: AppTheme.heading3.copyWith(
+                              color: AppTheme.errorColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 24,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          if (expense.vendorName != null)
-                            Row(
-                              children: [
-                                Icon(
-                                  CupertinoIcons.person_circle,
-                                  size: 14,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Vendor: ${expense.vendorName}',
-                                  style: AppTheme.caption.copyWith(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          if (expense.paymentMode != null) ...[
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(
-                                  CupertinoIcons.creditcard,
-                                  size: 14,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Payment: ${expense.paymentMode}',
-                                  style: AppTheme.caption.copyWith(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '₹${_formatAmount(expense.amount ?? 0)}',
-                          style: AppTheme.heading3.copyWith(
-                            color: AppTheme.errorColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 24,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          DateFormat('dd MMM yyyy')
-                              .format(expense.expenseDate ?? DateTime.now()),
-                          style: AppTheme.caption.copyWith(
-                            color: AppTheme.textSecondaryColor,
-                            fontSize: 14,
-                          ),
-                        ),
-                        if (expense.gstAmount != null &&
-                            expense.gstAmount! > 0) ...[
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
                           Text(
-                            'GST: ₹${_formatAmount(expense.gstAmount!)}',
-                            style: AppTheme.caption.copyWith(
-                              color: AppTheme.textSecondaryColor,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-                if (expense.referenceNumber != null ||
-                    expense.notes != null) ...[
-                  const SizedBox(height: 16),
-                  if (expense.referenceNumber != null) ...[
-                    Row(
-                      children: [
-                        Icon(
-                          CupertinoIcons.doc_text,
-                          size: 14,
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Ref: ${expense.referenceNumber}',
-                          style: AppTheme.caption.copyWith(
-                            color: AppTheme.textSecondaryColor,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (expense.notes != null) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          CupertinoIcons.chat_bubble_text,
-                          size: 14,
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            expense.notes!,
+                            DateFormat('dd MMM yyyy')
+                                .format(expense.expenseDate ?? DateTime.now()),
                             style: AppTheme.caption.copyWith(
                               color: AppTheme.textSecondaryColor,
                               fontSize: 14,
                             ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
-                    ),
+                          if (expense.gstAmount != null &&
+                              expense.gstAmount! > 0) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'GST: ₹${_formatAmount(expense.gstAmount!)}',
+                              style: AppTheme.caption.copyWith(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (expense.referenceNumber != null ||
+                      expense.notes != null) ...[
+                    const SizedBox(height: 16),
+                    if (expense.referenceNumber != null) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            CupertinoIcons.doc_text,
+                            size: 14,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Ref: ${expense.referenceNumber}',
+                            style: AppTheme.caption.copyWith(
+                              color: AppTheme.textSecondaryColor,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (expense.notes != null) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            CupertinoIcons.chat_bubble_text,
+                            size: 14,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              expense.notes!,
+                              style: AppTheme.caption.copyWith(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 14,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ],
-              ],
+              ),
             ),
-          ),
-        );
-      }).toList(),
-    ],
-  );
-}
+          );
+        }).toList(),
+      ],
+    );
+  }
 
   double _getTotalAmount(List<Expense> expenses) {
     return expenses.fold(0.0, (sum, expense) => sum + (expense.amount ?? 0));

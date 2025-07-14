@@ -1,10 +1,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:stocked/core/theme/app_theme.dart';
 import 'package:stocked/core/models/item_model.dart';
 import 'package:stocked/core/constants/app_constants.dart';
 import 'package:stocked/core/services/config_service.dart';
+import 'package:stocked/core/services/image_upload_service.dart';
+import 'package:stocked/core/services/category_service.dart';
 import 'package:stocked/features/stock/presentation/providers/stock_provider.dart';
 
 class AddItemModal extends ConsumerStatefulWidget {
@@ -29,6 +33,9 @@ class _AddItemModalState extends ConsumerState<AddItemModal> {
   String _selectedCategory = '';
   bool _isLoading = false;
   List<String> _categories = [];
+  File? _selectedImage;
+  String? _uploadedImageUrl;
+  bool _isUploadingImage = false;
 
   @override
   void initState() {
@@ -36,30 +43,69 @@ class _AddItemModalState extends ConsumerState<AddItemModal> {
     _loadCategories();
   }
 
-  void _loadCategories() {
+  Future<void> _loadCategories() async {
     try {
-      final categories = ConfigService.get<List<String>>('item_categories');
-      setState(() {
-        _categories = categories;
-        _selectedCategory = categories.isNotEmpty ? categories.first : '';
-      });
+      final categories = await CategoryService.getCategories();
+      if (categories.isEmpty) {
+        // Initialize default categories if none exist
+        await CategoryService.initializeDefaultCategories();
+        final defaultCategories = await CategoryService.getCategories();
+        setState(() {
+          _categories = defaultCategories;
+          _selectedCategory =
+              defaultCategories.isNotEmpty ? defaultCategories.first : '';
+        });
+      } else {
+        setState(() {
+          _categories = categories;
+          _selectedCategory = categories.isNotEmpty ? categories.first : '';
+        });
+      }
     } catch (e) {
       print('Error loading categories: $e');
       // Fallback to default categories
       setState(() {
-        _categories = [
-          'Electronics',
-          'Clothing',
-          'Food & Beverages',
-          'Home & Garden',
-          'Sports',
-          'Books',
-          'Automotive',
-          'Health & Beauty',
-          'Toys & Games',
-          'Other',
-        ];
+        _categories = CategoryService.getDefaultCategories();
         _selectedCategory = 'Electronics';
+      });
+    }
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final File? image = await ImageUploadService.pickImage(source: source);
+      if (image != null) {
+        setState(() {
+          _selectedImage = image;
+        });
+      }
+    } catch (e) {
+      _showErrorDialog('Error picking image: $e');
+    }
+  }
+
+  Future<void> _uploadImage() async {
+    if (_selectedImage == null) return;
+
+    setState(() {
+      _isUploadingImage = true;
+    });
+
+    try {
+      final String? imageUrl =
+          await ImageUploadService.uploadImageToBucket(_selectedImage!);
+      if (imageUrl != null) {
+        setState(() {
+          _uploadedImageUrl = imageUrl;
+        });
+      } else {
+        _showErrorDialog('Failed to upload image');
+      }
+    } catch (e) {
+      _showErrorDialog('Error uploading image: $e');
+    } finally {
+      setState(() {
+        _isUploadingImage = false;
       });
     }
   }
@@ -134,6 +180,10 @@ class _AddItemModalState extends ConsumerState<AddItemModal> {
                       placeholder: 'Enter item name',
                       icon: CupertinoIcons.cube_box,
                     ),
+                    const SizedBox(height: 16),
+
+                    // Image Upload
+                    _buildImageUploadSection(),
                     const SizedBox(height: 16),
 
                     // Category
@@ -364,6 +414,134 @@ class _AddItemModalState extends ConsumerState<AddItemModal> {
     );
   }
 
+  Widget _buildImageUploadSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Item Image',
+          style: AppTheme.body2.copyWith(
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimaryColor,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Image Preview
+        if (_selectedImage != null)
+          Container(
+            width: double.infinity,
+            height: 200,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                _selectedImage!,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+
+        // Upload Controls
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                ),
+                child: CupertinoTextField(
+                  controller:
+                      TextEditingController(text: _uploadedImageUrl ?? ''),
+                  placeholder: 'No image selected',
+                  placeholderStyle: AppTheme.body2.copyWith(
+                    color: AppTheme.primaryColor.withOpacity(0.5),
+                  ),
+                  style: AppTheme.body1,
+                  readOnly: true,
+                  prefix: Padding(
+                    padding: const EdgeInsets.only(left: 16),
+                    child: Icon(CupertinoIcons.photo,
+                        color: AppTheme.primaryColor, size: 20),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: null,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            CupertinoButton(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              color: AppTheme.primaryColor,
+              borderRadius: BorderRadius.circular(12),
+              onPressed:
+                  _isUploadingImage ? null : () => _showImageSourceDialog(),
+              child: Icon(
+                CupertinoIcons.plus,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ],
+        ),
+
+        // Upload Button
+        if (_selectedImage != null && _uploadedImageUrl == null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: SizedBox(
+              width: double.infinity,
+              child: CupertinoButton(
+                color: AppTheme.primaryColor,
+                borderRadius: BorderRadius.circular(12),
+                onPressed: _isUploadingImage ? null : _uploadImage,
+                child: _isUploadingImage
+                    ? const CupertinoActivityIndicator(color: Colors.white)
+                    : const Text('Upload Image'),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showImageSourceDialog() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('Select Image Source'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _pickImage(ImageSource.gallery);
+            },
+            child: const Text('Gallery'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _pickImage(ImageSource.camera);
+            },
+            child: const Text('Camera'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -372,6 +550,16 @@ class _AddItemModalState extends ConsumerState<AddItemModal> {
     });
 
     try {
+      // Upload image if selected but not yet uploaded
+      String? finalImageUrl = _uploadedImageUrl;
+      if (_selectedImage != null && _uploadedImageUrl == null) {
+        finalImageUrl =
+            await ImageUploadService.uploadImageToBucket(_selectedImage!);
+        if (finalImageUrl == null) {
+          throw Exception('Failed to upload image');
+        }
+      }
+
       final item = Item(
         name: _nameController.text.trim(),
         category: _selectedCategory,
@@ -385,6 +573,7 @@ class _AddItemModalState extends ConsumerState<AddItemModal> {
         description: _descriptionController.text.trim(),
         barcode: _barcodeController.text.trim(),
         sku: _skuController.text.trim(),
+        imageUrl: finalImageUrl,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

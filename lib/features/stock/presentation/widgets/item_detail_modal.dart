@@ -175,6 +175,72 @@ class _ItemDetailModalState extends ConsumerState<ItemDetailModal> {
                   ),
                   const SizedBox(height: 16),
 
+                  // Item Image Section
+                  if (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: AppTheme.glassmorphicDecoration,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Item Image', style: AppTheme.heading4),
+                          const SizedBox(height: 16),
+                          Container(
+                            width: double.infinity,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.network(
+                                item.imageUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    padding: const EdgeInsets.all(32),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          CupertinoIcons.photo,
+                                          color: AppTheme.textSecondaryColor,
+                                          size: 48,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Image not available',
+                                          style: AppTheme.body2.copyWith(
+                                            color: AppTheme.textSecondaryColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    padding: const EdgeInsets.all(32),
+                                    child: CupertinoActivityIndicator(
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+                    const SizedBox(height: 16),
+
                   // Details Section
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -447,11 +513,9 @@ class _ItemDetailModalState extends ConsumerState<ItemDetailModal> {
             double.tryParse(_unitPriceController.text) ?? widget.item.unitPrice,
         gstPercentage:
             double.tryParse(_gstController.text) ?? widget.item.gstPercentage,
-        currentStock:
-            int.tryParse(_currentStockController.text) ??
+        currentStock: int.tryParse(_currentStockController.text) ??
             widget.item.currentStock,
-        lowStockThreshold:
-            int.tryParse(_lowStockThresholdController.text) ??
+        lowStockThreshold: int.tryParse(_lowStockThresholdController.text) ??
             widget.item.lowStockThreshold,
         description: _descriptionController.text.trim(),
         updatedAt: DateTime.now(),
@@ -496,7 +560,9 @@ class _ItemDetailModalState extends ConsumerState<ItemDetailModal> {
       try {
         // Delete item using provider
         if (widget.item.id != null) {
-          await ref.read(stockProviderNotifier.notifier).deleteItem(widget.item.id!);
+          await ref
+              .read(stockProviderNotifier.notifier)
+              .deleteItem(widget.item.id!);
         }
         Navigator.pop(context);
       } catch (e) {

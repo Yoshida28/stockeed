@@ -37,6 +37,44 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildMainContent(BuildContext context, user, bool isMobile,
       DashboardState dashboardState) {
+    // Check if analytics graphs are available
+    if (dashboardState.analyticsGraphs.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                CupertinoIcons.chart_bar,
+                size: 64,
+                color: AppTheme.textSecondaryColor,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No analytics data available',
+                style: AppTheme.heading3.copyWith(
+                  color: AppTheme.textSecondaryColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Add some items and orders to see analytics',
+                style: AppTheme.body2.copyWith(
+                  color: AppTheme.textSecondaryColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Ensure current graph index is valid
+    if (_currentGraphIndex >= dashboardState.analyticsGraphs.length) {
+      _currentGraphIndex = 0;
+    }
+
     // Use real data from provider
     final bool isOnline = true; // For now, always online since it's local
     final double moneyToBeReceived =
@@ -108,109 +146,139 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         Container(
           height: 400,
           decoration: _buildGlassmorphicDecoration(),
-          child: Column(
-            children: [
-              // Carousel Header
-              Container(
-                padding: const EdgeInsets.all(24),
-                child: Row(
+          child: dashboardState.analyticsGraphs.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        CupertinoIcons.chart_bar,
+                        size: 48,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No analytics data available',
+                        style: AppTheme.heading3.copyWith(
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Add some items and orders to see analytics',
+                        style: AppTheme.body2.copyWith(
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Column(
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    // Carousel Header
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      child: Row(
                         children: [
-                          Text(
-                            dashboardState.analyticsGraphs[_currentGraphIndex]
-                                ['title'],
-                            style: AppTheme.heading3,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            dashboardState.analyticsGraphs[_currentGraphIndex]
-                                ['subtitle'],
-                            style: AppTheme.body2.copyWith(
-                              color: AppTheme.textSecondaryColor,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  dashboardState
+                                          .analyticsGraphs[_currentGraphIndex]
+                                      ['title'],
+                                  style: AppTheme.heading3,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  dashboardState
+                                          .analyticsGraphs[_currentGraphIndex]
+                                      ['subtitle'],
+                                  style: AppTheme.body2.copyWith(
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                          Row(
+                            children: [
+                              IconButton(
+                                onPressed: _currentGraphIndex > 0
+                                    ? () {
+                                        setState(() {
+                                          _currentGraphIndex--;
+                                        });
+                                      }
+                                    : null,
+                                icon: const Icon(CupertinoIcons.chevron_left),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${_currentGraphIndex + 1} / ${dashboardState.analyticsGraphs.length}',
+                                  style: AppTheme.body2.copyWith(
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: _currentGraphIndex <
+                                        dashboardState.analyticsGraphs.length -
+                                            1
+                                    ? () {
+                                        setState(() {
+                                          _currentGraphIndex++;
+                                        });
+                                      }
+                                    : null,
+                                icon: const Icon(CupertinoIcons.chevron_right),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: _currentGraphIndex > 0
-                              ? () {
-                                  setState(() {
-                                    _currentGraphIndex--;
-                                  });
-                                }
-                              : null,
-                          icon: const Icon(CupertinoIcons.chevron_left),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '${_currentGraphIndex + 1} / ${dashboardState.analyticsGraphs.length}',
-                            style: AppTheme.body2.copyWith(
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.w600,
+
+                    // Graph Content
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        child: _buildAnalyticsGraph(
+                            dashboardState.analyticsGraphs[_currentGraphIndex]),
+                      ),
+                    ),
+
+                    // View Details Button
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      child: CupertinoButton.filled(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (context) => AnalyticsDetailScreen(
+                                graphData: dashboardState
+                                    .analyticsGraphs[_currentGraphIndex],
+                              ),
                             ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: _currentGraphIndex <
-                                  dashboardState.analyticsGraphs.length - 1
-                              ? () {
-                                  setState(() {
-                                    _currentGraphIndex++;
-                                  });
-                                }
-                              : null,
-                          icon: const Icon(CupertinoIcons.chevron_right),
-                        ),
-                      ],
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: const Text('View Detailed Report'),
+                      ),
                     ),
                   ],
                 ),
-              ),
-
-              // Graph Content
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  child: _buildAnalyticsGraph(
-                      dashboardState.analyticsGraphs[_currentGraphIndex]),
-                ),
-              ),
-
-              // View Details Button
-              Container(
-                padding: const EdgeInsets.all(24),
-                child: CupertinoButton.filled(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(
-                        builder: (context) => AnalyticsDetailScreen(
-                          graphData: dashboardState
-                              .analyticsGraphs[_currentGraphIndex],
-                        ),
-                      ),
-                    );
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: const Text('View Detailed Report'),
-                ),
-              ),
-            ],
-          ),
         ),
 
         const SizedBox(height: 32),
